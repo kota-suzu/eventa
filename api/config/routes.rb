@@ -3,7 +3,7 @@ Rails.application.routes.draw do
 
   # メインのヘルスチェックエンドポイント
   get "healthz" => "health#check"
-  
+
   # 以前のRailsデフォルトヘルスチェックはカスタムエンドポイントにリダイレクト
   get "up" => redirect("/healthz", status: 301)
 
