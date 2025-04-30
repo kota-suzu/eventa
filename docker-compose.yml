@@ -1,0 +1,16 @@
+version: "3.9"
+services:
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: eventa_dev
+    ports: ["3306:3306"]
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+  api:
+    build: ./api
+    depends_on: [db, redis]
+    ports: ["3000:3000"]
+    env_file: .env

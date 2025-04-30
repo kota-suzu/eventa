@@ -1,0 +1,8 @@
+FROM ruby:3.3-alpine
+WORKDIR /app
+ENV RAILS_ENV=development
+RUN apk add --no-cache build-base mysql-client nodejs npm
+COPY ./api/Gemfile* ./
+RUN bundle install
+COPY ./api ./
+CMD ["bin/dev"]   # foreman + tailwind + esbuild
