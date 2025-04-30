@@ -1,33 +1,37 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 name: CI
-on: [push, pull_request]
+on:
+  push:
+  pull_request:
 jobs:
-  lint:
+  build:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: 3.3
-          bundler-cache: true
-          cache-version: lint-${{ hashFiles('api/Gemfile.lock') }}
-      
-      - name: Lint
-        working-directory: ./api
-        run: bundle exec standardrb
-
-  test:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        phase: [lint, test]
+      fail-fast: false
     services:
       mysql:
         image: mysql:8.0
         env:
           MYSQL_ROOT_PASSWORD: rootpass
           MYSQL_DATABASE: eventa_test
-        options: --health-cmd="mysqladmin ping" --health-interval=5s --health-timeout=5s --health-retries=5
+        options: >-
+          --health-cmd="mysqladmin ping" 
+          --health-interval=10s 
+          --health-timeout=10s 
+          --health-retries=10
+        ports:
+          - 3306:3306
       redis:
         image: redis:7-alpine
-        options: --health-cmd="redis-cli ping" --health-interval=5s --health-timeout=3s --health-retries=5
+        options: >-
+          --health-cmd="redis-cli ping" 
+          --health-interval=5s 
+          --health-timeout=3s 
+          --health-retries=5
+        ports:
+          - 6379:6379
     steps:
       - uses: actions/checkout@v4
       
@@ -35,46 +39,45 @@ jobs:
         with:
           ruby-version: 3.3
           bundler-cache: true
-          cache-version: test-${{ hashFiles('api/Gemfile.lock') }}
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          
-      - name: Cache Yarn packages
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/yarn
-          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-yarn-
       
       - name: Wait for MySQL
+        if: matrix.phase == 'test'
         run: |
-          for i in {1..90}; do
-            if mysqladmin ping -h mysql -u root -prootpass --silent; then
+          for i in {1..120}; do
+            if mysqladmin ping -h 127.0.0.1 -u root -prootpass --silent; then
               echo "MySQL is up!"
               exit 0
             fi
-            echo "Waiting for MySQL... ($i/90)"
+            echo "Waiting for MySQL... ($i/120)"
             sleep 1
           done
           echo "MySQL did not become available in time"
           exit 1
       
+      - name: Lint with StandardRB
+        if: matrix.phase == 'lint'
+        working-directory: ./api
+        run: bundle exec standardrb
+      
+      - name: Run Brakeman
+        if: matrix.phase == 'lint'
+        working-directory: ./api
+        run: bundle exec brakeman -q --no-pager
+      
       - name: Setup Database
+        if: matrix.phase == 'test'
         working-directory: ./api
         run: |
           cp config/database.yml.ci config/database.yml
           bundle exec rails db:prepare
         env:
           RAILS_ENV: test
-          DATABASE_URL: mysql2://root:rootpass@mysql:3306/eventa_test
+          DATABASE_URL: mysql2://root:rootpass@127.0.0.1:3306/eventa_test
           
       - name: Run RSpec
+        if: matrix.phase == 'test'
         working-directory: ./api
         run: bundle exec rspec
         env:
           RAILS_ENV: test
-          DATABASE_URL: mysql2://root:rootpass@mysql:3306/eventa_test
+          DATABASE_URL: mysql2://root:rootpass@127.0.0.1:3306/eventa_test

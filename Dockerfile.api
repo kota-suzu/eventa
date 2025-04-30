@@ -1,9 +1,10 @@
 # ビルドステージ - gemのビルドとインストールを行う
-FROM ruby:3.3-slim AS builder
+FROM ruby:3.3.2-slim-bookworm AS builder
 WORKDIR /app
 
 # ビルド時の依存関係のみインストール
 RUN apt-get update -qq && \
+    apt-get upgrade --security-only -y && \
     apt-get install -y --no-install-recommends \
     build-essential \
     default-libmysqlclient-dev \
@@ -11,6 +12,7 @@ RUN apt-get update -qq && \
     pkg-config \
     nodejs \
     npm \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/* \
     && npm install -g yarn
 
@@ -33,17 +35,19 @@ ENV SECRET_KEY_BASE=dummy_key_for_precompile
 RUN bundle exec rails assets:precompile
 
 # 本番用ステージ - 必要なランタイム依存関係のみ含める
-FROM ruby:3.3-slim AS runtime
+FROM ruby:3.3.2-slim-bookworm AS runtime
 WORKDIR /app  # 作業ディレクトリを/appに設定
 ENV RAILS_ENV=production
 
 # ランタイム依存関係のみインストール
 RUN apt-get update -qq && \
+    apt-get upgrade --security-only -y && \
     apt-get install -y --no-install-recommends \
     libmariadb3 \
     tzdata \
     curl \
     nodejs \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 # ビルドしたgemをコピー
@@ -52,12 +56,16 @@ COPY --from=builder /usr/local/bundle /usr/local/bundle
 # コンパイル済みアセットをコピー
 COPY --from=builder /app/public/assets /app/public/assets
 
-# アプリケーションコードをコピー（/app → /appにコピーするため、WORKDIRと一致していることを確認）
+# アプリケーションコードをコピー
 COPY --from=builder /app .
 
 # 本番設定
 RUN bundle config set --local deployment 'true' && \
     bundle config set --local without 'development test'
+
+# ヘルスチェック用のエントリポイント
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+  CMD curl -f http://localhost:3000/health || exit 1
 
 # サーバー起動
 CMD ["bin/rails", "server", "-b", "0.0.0.0"]

@@ -4,7 +4,13 @@
   "service": "api",
   "workspaceFolder": "/app",
   "postStartCommand": "bin/setup || true",
-  "settings": { "terminal.integrated.defaultProfile.linux": "bash" },
+  "customizations": {
+    "vscode": {
+      "settings": { 
+        "terminal.integrated.defaultProfile.linux": "bash" 
+      }
+    }
+  },
   "mounts": [ 
     "source=eventa_gems,target=/usr/local/bundle,type=volume",
     "source=eventa_yarn,target=/home/vscode/.cache/yarn,type=volume",
