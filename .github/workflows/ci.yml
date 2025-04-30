@@ -17,10 +17,10 @@ jobs:
           MYSQL_ROOT_PASSWORD: rootpass
           MYSQL_DATABASE: eventa_test
         options: >-
-          --health-cmd="mysqladmin ping" 
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -u root -prootpass --silent" 
           --health-interval=10s 
           --health-timeout=10s 
-          --health-retries=10
+          --health-retries=20
         ports:
           - 3306:3306
       redis:
@@ -69,6 +69,11 @@ jobs:
         working-directory: ./api
         run: bundle exec brakeman -q --no-pager
       
+      - name: Install dependencies
+        if: matrix.phase == 'test'
+        working-directory: ./api
+        run: bundle install
+      
       - name: Setup Database
         if: matrix.phase == 'test'
         working-directory: ./api
@@ -78,6 +83,20 @@ jobs:
         env:
           RAILS_ENV: test
           DATABASE_URL: mysql2://root:rootpass@127.0.0.1:3306/eventa_test
+      
+      - name: Debug MySQL Service
+        if: matrix.phase == 'test' && failure()
+        run: |
+          echo "=== MySQL Status ==="
+          mysqladmin -h 127.0.0.1 -u root -prootpass status
+          echo "=== MySQL Processes ==="
+          mysqladmin -h 127.0.0.1 -u root -prootpass processlist
+      
+      - name: Debug Redis Service
+        if: matrix.phase == 'test' && failure()
+        run: |
+          echo "=== Redis Info ==="
+          redis-cli info
           
       - name: Run RSpec
         if: matrix.phase == 'test'
