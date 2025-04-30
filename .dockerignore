@@ -1,0 +1,11 @@
+# Dockerイメージから除外するファイル/ディレクトリ
+
+# APIのテストディレクトリと一時ファイル
+api/spec/*
+api/tmp/*
+
+# その他の除外ファイル
+.git
+.github
+.env*
+.dockerignore 

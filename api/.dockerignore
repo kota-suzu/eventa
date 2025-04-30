@@ -43,3 +43,9 @@
 # Ignore Docker-related files
 /.dockerignore
 /Dockerfile*
+
+# Ignore test and temp directories
+# 注: Docker内でRSpecを実行したい場合は以下の行をコメントアウトする
+# 開発環境ではボリュームマウント経由でアクセス可能
+# /spec/
+/tmp/

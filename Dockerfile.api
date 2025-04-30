@@ -1,8 +1,63 @@
-FROM ruby:3.3-alpine
+# ビルドステージ - gemのビルドとインストールを行う
+FROM ruby:3.3-slim AS builder
 WORKDIR /app
-ENV RAILS_ENV=development
-RUN apk add --no-cache build-base mysql-client nodejs npm
+
+# ビルド時の依存関係のみインストール
+RUN apt-get update -qq && \
+    apt-get install -y --no-install-recommends \
+    build-essential \
+    default-libmysqlclient-dev \
+    git \
+    pkg-config \
+    nodejs \
+    npm \
+    && rm -rf /var/lib/apt/lists/* \
+    && npm install -g yarn
+
+# Gemfileをコピーしてbundle installを実行
 COPY ./api/Gemfile* ./
-RUN bundle install
+RUN bundle config set --local deployment 'true' && \
+    bundle config set --local without 'development test' && \
+    bundle install
+
+# JavaScriptアセットのコンパイルが必要な場合
+COPY ./api/package.json ./api/yarn.lock ./
+RUN yarn install --frozen-lockfile
+
+# アプリケーションコードをコピー (アセットのプリコンパイルに必要)
 COPY ./api ./
-CMD ["bin/dev"]   # foreman + tailwind + esbuild
+
+# アセットをプリコンパイル
+ENV RAILS_ENV=production
+ENV SECRET_KEY_BASE=dummy_key_for_precompile
+RUN bundle exec rails assets:precompile
+
+# 本番用ステージ - 必要なランタイム依存関係のみ含める
+FROM ruby:3.3-slim AS runtime
+WORKDIR /app  # 作業ディレクトリを/appに設定
+ENV RAILS_ENV=production
+
+# ランタイム依存関係のみインストール
+RUN apt-get update -qq && \
+    apt-get install -y --no-install-recommends \
+    libmariadb3 \
+    tzdata \
+    curl \
+    nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+# ビルドしたgemをコピー
+COPY --from=builder /usr/local/bundle /usr/local/bundle
+
+# コンパイル済みアセットをコピー
+COPY --from=builder /app/public/assets /app/public/assets
+
+# アプリケーションコードをコピー（/app → /appにコピーするため、WORKDIRと一致していることを確認）
+COPY --from=builder /app .
+
+# 本番設定
+RUN bundle config set --local deployment 'true' && \
+    bundle config set --local without 'development test'
+
+# サーバー起動
+CMD ["bin/rails", "server", "-b", "0.0.0.0"]

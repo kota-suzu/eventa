@@ -1,0 +1,40 @@
+# Rails関連のログとテンポラリファイル
+/log/*
+/tmp/*
+!/log/.keep
+!/tmp/.keep
+
+# データベース
+/db/*.sqlite3
+/db/*.sqlite3-journal
+
+# アップロードされたファイル
+/storage/*
+!/storage/.keep
+
+# キャッシュとログ
+/.bundle
+/vendor/bundle
+/.yarn
+/node_modules
+/public/assets
+/public/packs
+/coverage/
+
+# 環境変数と機密情報
+/.env*
+!/.env.example
+/.envrc
+
+# APIディレクトリの Bundler設定
+/api/.bundle
+
+# OS固有
+.DS_Store
+Thumbs.db
+
+# エディタ設定
+/.idea
+/.vscode
+*.swp
+*~

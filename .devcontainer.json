@@ -1,0 +1,14 @@
+{
+  "name": "eventa",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "api",
+  "workspaceFolder": "/app",
+  "postStartCommand": "bin/setup || true",
+  "settings": { "terminal.integrated.defaultProfile.linux": "bash" },
+  "mounts": [ 
+    "source=eventa_gems,target=/usr/local/bundle,type=volume",
+    "source=eventa_yarn,target=/home/vscode/.cache/yarn,type=volume",
+    "source=eventa_node_modules,target=/app/.node_modules_cache,type=volume"
+  ],
+  "postAttachCommand": "yarn install --immutable --silent"
+}

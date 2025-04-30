@@ -1,0 +1,19 @@
+# Sidekiqの設定ファイル
+# 環境変数 SIDEKIQ_CONCURRENCY を使用して並行性を設定可能
+# 例: SIDEKIQ_CONCURRENCY=25 bundle exec sidekiq
+
+# 並行実行数（デフォルト: 10）- 環境変数で上書き可能
+:concurrency: <%= ENV.fetch("SIDEKIQ_CONCURRENCY", 10) %>
+
+# キューとその優先度 (数値が大きいほど優先度が高い)
+:queues:
+  - [critical, 7]  # 最優先キュー
+  - [default, 5]   # 標準キュー
+  - [mailers, 3]   # メール送信キュー
+  - [low, 1]       # 優先度低キュー
+
+# Max number of jobs to fetch at once
+:fetch: 3
+
+# デバッグログも有効にする場合は以下を有効化
+# :verbose: true 
