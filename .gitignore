@@ -64,3 +64,23 @@ Thumbs.db
 **/.vscode/
 *.swp
 *~
+
+# 追加の除外設定
+/api/log/*.log
+/api/log/**/*.log
+/api/tmp/**/*
+.DS_Store
+**/.DS_Store
+*.swp
+*~
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+/frontend/.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
