@@ -1,2 +1,31 @@
 class ApplicationController < ActionController::API
+  # デフォルトで全アクションに認証を要求
+  before_action :authenticate_user
+
+  private
+
+  # 認証が必要なコントローラーで使用するメソッド
+  def authenticate_user
+    token = extract_token
+    return render_unauthorized(I18n.t("errors.auth.missing_token")) if token.blank?
+
+    payload = JsonWebToken.decode(token)
+    return render_unauthorized(I18n.t("errors.auth.invalid_token")) unless payload
+
+    @current_user = User.find_by(id: payload["user_id"])
+    render_unauthorized(I18n.t("errors.auth.user_not_found")) unless @current_user
+  end
+
+  # 現在のユーザーを取得
+  attr_reader :current_user
+
+  # リクエストヘッダーからJWTトークンを抽出
+  def extract_token
+    header = request.headers["Authorization"]
+    header&.split(" ")&.last
+  end
+
+  def render_unauthorized(message = nil)
+    render json: {error: message || I18n.t("errors.unauthorized")}, status: :unauthorized
+  end
 end

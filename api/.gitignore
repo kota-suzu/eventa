@@ -1,6 +1,8 @@
-
 # Ignore master key for decrypting credentials and more.
 /config/master.key
 
 /tmp/cache/
 /tmp/cache/bootsnap/
+
+# RSpecの結果ファイル
+/spec/examples.txt

@@ -1,47 +1,90 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/router';
-import Head from 'next/head';
 import Link from 'next/link';
 import styles from '../styles/Auth.module.css';
-import Header from '../components/Header';
 import { useAuth } from '../contexts/AuthContext';
-import { post } from '../utils/api';
 
-export default function Login() {
+const Login = () => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  
   const router = useRouter();
   const { login } = useAuth();
-  const [formData, setFormData] = useState({
-    email: '',
-    password: ''
-  });
-  const [errors, setErrors] = useState({});
-  const [isLoading, setIsLoading] = useState(false);
-  const [apiError, setApiError] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (!validateForm()) {
-      return;
-    }
-
+    setError('');
     setIsLoading(true);
-    setApiError('');
-
+    
     try {
-      const data = await post('/api/v1/auth/login', formData);
-      
-      // 認証コンテキストを使ってログイン
-      login(data.meta.token, data.data);
-      
-      // リダイレクト先がある場合はそちらに、なければホームページへ
-      const redirectPath = router.query.redirect || '/';
-      router.push(redirectPath);
-    } catch (error) {
-      console.error('Login error:', error);
-      setApiError(error.message || 'メールアドレスまたはパスワードが正しくありません。');
+      const result = await login(email, password);
+      if (result.ok) {
+        router.push('/');
+      } else {
+        setError(result.message || 'ログインに失敗しました。メールアドレスまたはパスワードが正しくありません。');
+      }
+    } catch (err) {
+      setError('ログイン処理中にエラーが発生しました。時間をおいて再度お試しください。');
+      console.error('Login error:', err);
     } finally {
       setIsLoading(false);
     }
   };
-}
+
+  return (
+    <div className={styles.authContainer}>
+      <div className={styles.formContainer}>
+        <h1 className={styles.title}>ログイン</h1>
+        
+        {error && <div className={styles.error}>{error}</div>}
+        
+        <form onSubmit={handleSubmit} className={styles.form}>
+          <div className={styles.formGroup}>
+            <label htmlFor="email">メールアドレス</label>
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className={styles.input}
+            />
+          </div>
+          
+          <div className={styles.formGroup}>
+            <label htmlFor="password">パスワード</label>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className={styles.input}
+            />
+          </div>
+          
+          <button 
+            type="submit" 
+            className={styles.button}
+            disabled={isLoading}
+          >
+            {isLoading ? 'ログイン中...' : 'ログイン'}
+          </button>
+        </form>
+        
+        <div className={styles.links}>
+          <p>
+            アカウントをお持ちでないですか？ <Link href="/register" className={styles.link}>新規登録</Link>
+          </p>
+          <p>
+            <Link href="/forgot-password" className={styles.link}>パスワードをお忘れですか？</Link>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Login;

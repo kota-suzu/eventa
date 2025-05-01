@@ -1,71 +1,96 @@
 .authContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  padding: 20px;
+  background-color: #f5f5f5;
+}
+
+.formContainer {
+  width: 100%;
   max-width: 500px;
-  margin: 60px auto;
-  padding: 2rem;
+  background-color: white;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  background-color: #fff;
+  padding: 32px;
 }
 
 .title {
   text-align: center;
-  font-size: 1.8rem;
-  margin-bottom: 2rem;
+  margin-bottom: 24px;
+  font-size: 24px;
+  font-weight: 600;
   color: #333;
 }
 
 .form {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 20px;
 }
 
 .formGroup {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 8px;
 }
 
-.label {
+.formGroup label {
   font-weight: 500;
-  font-size: 0.9rem;
-  color: #555;
+  color: #333;
+  font-size: 14px;
 }
 
 .input {
-  padding: 0.75rem 1rem;
+  height: 44px;
+  padding: 0 12px;
   border: 1px solid #ddd;
   border-radius: 4px;
-  font-size: 1rem;
-  transition: border-color 0.3s;
+  font-size: 16px;
+  transition: border-color 0.2s ease;
 }
 
 .input:focus {
   outline: none;
   border-color: #0070f3;
-  box-shadow: 0 0 0 2px rgba(0, 112, 243, 0.1);
+  box-shadow: 0 0 0 2px rgba(0, 112, 243, 0.2);
+}
+
+.inputError {
+  border-color: #e00;
+}
+
+.errorMessage {
+  color: #c00; /* コントラスト向上のため */
+  font-size: 12px;
+  margin-top: 4px;
 }
 
 .error {
-  color: #e53e3e;
-  font-size: 0.8rem;
-  margin-top: 0.25rem;
+  background-color: #fff1f1;
+  border: 1px solid #c00; /* コントラスト向上のため #e00 から #c00 に */
+  color: #c00;
+  border-radius: 4px;
+  padding: 10px;
+  margin-bottom: 20px;
+  text-align: center;
 }
 
 .button {
+  height: 48px;
   background-color: #0070f3;
   color: white;
   border: none;
   border-radius: 4px;
-  padding: 0.75rem;
-  font-size: 1rem;
-  font-weight: 500;
+  font-size: 16px;
+  font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.3s;
+  transition: background-color 0.2s ease;
 }
 
 .button:hover {
-  background-color: #005bbf;
+  background-color: #0060d9;
 }
 
 .button:disabled {
@@ -73,26 +98,105 @@
   cursor: not-allowed;
 }
 
-.link {
+.links {
+  margin-top: 24px;
   text-align: center;
-  margin-top: 1.5rem;
-  font-size: 0.9rem;
 }
 
-.link a {
+.link {
   color: #0070f3;
   text-decoration: none;
 }
 
-.link a:hover {
+.link:hover {
   text-decoration: underline;
 }
 
-.apiError {
-  background-color: #fee2e2;
-  color: #b91c1c;
-  padding: 0.75rem;
-  border-radius: 4px;
-  margin-bottom: 1.5rem;
-  text-align: center;
-} 
+.radioGroup {
+  display: flex;
+  gap: 16px;
+  margin-top: 4px;
+}
+
+.radioLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.passwordStrength {
+  font-size: 12px;
+  padding: 4px 0;
+}
+
+.passwordMeterContainer {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.passwordMeter {
+  height: 6px;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.passwordStrengthText {
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.weak {
+  background-color: #c00;
+}
+
+.medium {
+  background-color: #da8a00; /* より高いコントラストのオレンジ */
+}
+
+.strong {
+  background-color: #0a0;
+}
+
+/* テキスト用の色（別クラス） */
+.textWeak {
+  color: #c00;
+}
+
+.textMedium {
+  color: #da8a00;
+}
+
+.textStrong {
+  color: #0a0;
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 767px) {
+  .formContainer {
+    width: 95%;
+    padding: 20px;
+  }
+  
+  .title {
+    font-size: 20px;
+  }
+  
+  .input {
+    font-size: 14px;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .formContainer {
+    width: 80%;
+  }
+}

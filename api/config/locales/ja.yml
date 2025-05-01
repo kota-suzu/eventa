@@ -1,0 +1,32 @@
+ja:
+  errors:
+    unauthorized: '認証が必要です'
+    auth:
+      missing_token: 'トークンがありません'
+      invalid_token: '無効なトークンです'
+      user_not_found: 'ユーザーが見つかりません'
+  auth:
+    invalid_credentials: 'メールアドレスまたはパスワードが無効です'
+    registration:
+      success: '登録が完了しました'
+      error: '登録できませんでした'
+  activerecord:
+    errors:
+      models:
+        user:
+          attributes:
+            email:
+              blank: 'メールアドレスを入力してください'
+              invalid: 'メールアドレスの形式が正しくありません'
+              taken: 'このメールアドレスは既に使用されています'
+            name:
+              blank: '氏名を入力してください'
+              too_long: '氏名は%{count}文字以内で入力してください'
+            password:
+              blank: 'パスワードを入力してください'
+              too_short: 'パスワードは%{count}文字以上で入力してください'
+              too_long: 'パスワードは%{count}文字以内で入力してください'
+            password_confirmation:
+              confirmation: 'パスワードとパスワード確認が一致しません'
+            role:
+              inclusion: '無効なユーザータイプが指定されています'

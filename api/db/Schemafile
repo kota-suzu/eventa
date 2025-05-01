@@ -30,9 +30,11 @@ create_table "users", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force
   t.string "password_digest", null: false
   t.string "name", null: false
   t.text "bio"
+  t.integer "role", limit: 4, default: 0, null: false
   t.datetime "created_at", null: false
   t.datetime "updated_at", null: false
   t.index ["email"], name: "index_users_on_email", unique: true
+  t.index ["role"], name: "index_users_on_role"
 end
 
 add_foreign_key "events", "users"

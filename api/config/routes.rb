@@ -11,6 +11,16 @@ Rails.application.routes.draw do
   # 以前のRailsデフォルトヘルスチェックはカスタムエンドポイントにリダイレクト
   get "up" => redirect("/healthz", status: 301)
 
+  # API エンドポイント
+  namespace :api do
+    namespace :v1 do
+      resource :auth, only: [] do
+        post :register
+        post :login
+      end
+    end
+  end
+
   # 本番環境ではルート情報を無効化
   unless ENV["RAILS_SKIP_ROUTES"] == "true"
     # Rails 8.0.2では直接Rails::InfoControllerをマウントする代わりに、

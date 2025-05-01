@@ -1,82 +1,179 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useState, useEffect, useContext } from 'react';
 import { useRouter } from 'next/router';
-import { 
-  setAuthToken, 
-  getAuthToken, 
-  setUserData, 
-  getUserData, 
-  clearAuth, 
-  isAuthenticated as checkIsAuthenticated 
-} from '../utils/auth';
+import axios from 'axios';
 
-const AuthContext = createContext({
-  isAuthenticated: false,
-  user: null,
-  login: () => {},
-  logout: () => {},
-  loading: true
+// APIのURLを環境変数から取得
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+
+// 専用のaxiosインスタンスを作成
+const api = axios.create({
+  baseURL: API_URL
 });
 
+// ローカルストレージのSSR安全なアクセス
+const getFromStorage = (key) => {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem(key);
+};
+
+const saveToStorage = (key, value) => {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(key, value);
+};
+
+const removeFromStorage = (key) => {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(key);
+};
+
+export const AuthContext = createContext();
+
+// 便利なカスタムフック
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  // アプリロード時に認証状態を確認
+  // トークンをAPIクライアントに設定する関数
+  const setAuthToken = (token) => {
+    if (token) {
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    } else {
+      delete api.defaults.headers.common['Authorization'];
+    }
+  };
+
+  // 初期化時にローカルストレージからトークンを取得
   useEffect(() => {
-    const initAuth = async () => {
-      try {
-        // 認証状態の確認
-        if (checkIsAuthenticated()) {
-          // セッションストレージからユーザーデータを取得
-          const userData = getUserData();
+    const storedToken = getFromStorage('auth_token');
+    const storedUser = getFromStorage('user');
 
-          if (userData) {
-            // 実際のアプリケーションでは、ここでトークンの有効性を確認する
-            // 例: APIを呼び出して現在のユーザー情報を取得
-            setUser(userData);
-          }
-        }
-      } catch (error) {
-        console.error('認証初期化エラー:', error);
-        // エラーが発生した場合、認証情報をクリア
-        clearAuth();
-        setUser(null);
-      } finally {
-        setLoading(false);
-      }
-    };
+    if (storedToken && storedUser) {
+      setToken(storedToken);
+      setUser(JSON.parse(storedUser));
+      
+      // トークンをAPIクライアントにセット
+      setAuthToken(storedToken);
+    }
 
-    initAuth();
+    setLoading(false);
   }, []);
 
-  // ログイン処理
-  const login = (token, userData, remember = false) => {
-    setAuthToken(token, remember);
-    setUserData(userData);
-    setUser(userData);
+  // ユーザー登録処理 - 拡張された戻り値
+  const register = async (userData) => {
+    try {
+      const response = await api.post(`/auth/register`, userData);
+      
+      if (response.status === 201) {
+        const { user, token } = response.data;
+        
+        // トークンとユーザー情報を保存
+        saveToStorage('auth_token', token);
+        saveToStorage('user', JSON.stringify(user));
+        
+        // 状態を更新
+        setUser(user);
+        setToken(token);
+        
+        // トークンをAPIクライアントにセット
+        setAuthToken(token);
+        
+        return { ok: true, user };
+      }
+      return { ok: false, message: '登録処理に失敗しました' };
+    } catch (error) {
+      console.error('Registration failed:', error);
+      return { 
+        ok: false, 
+        message: error.response?.data?.errors?.join(', ') || '登録処理中にエラーが発生しました' 
+      };
+    }
+  };
+
+  // ログイン処理 - 拡張された戻り値
+  const login = async (email, password) => {
+    try {
+      const response = await api.post(`/auth/login`, {
+        email,
+        password
+      });
+      
+      if (response.status === 200) {
+        const { user, token } = response.data;
+        
+        // トークンとユーザー情報を保存
+        saveToStorage('auth_token', token);
+        saveToStorage('user', JSON.stringify(user));
+        
+        // 状態を更新
+        setUser(user);
+        setToken(token);
+        
+        // トークンをAPIクライアントにセット
+        setAuthToken(token);
+        
+        return { ok: true, user };
+      }
+      return { ok: false, message: 'ログインに失敗しました' };
+    } catch (error) {
+      console.error('Login failed:', error);
+      return { 
+        ok: false, 
+        message: error.response?.data?.error || 'ログイン中にエラーが発生しました' 
+      };
+    }
   };
 
   // ログアウト処理
   const logout = () => {
-    clearAuth();
+    // トークンとユーザー情報をクリア
+    removeFromStorage('auth_token');
+    removeFromStorage('user');
+    
+    // 状態を更新
     setUser(null);
+    setToken(null);
+    
+    // APIクライアントからトークンを削除
+    setAuthToken(null);
+    
+    // ホームへリダイレクト
     router.push('/login');
+  };
+  
+  // 認証状態のチェック
+  const isAuthenticated = () => {
+    return !!token;
+  };
+  
+  // ユーザーロールに基づく権限チェック
+  const hasRole = (role) => {
+    if (!user) return false;
+    return user.role === role;
+  };
+
+  // APIクライアントを公開
+  const apiClient = api;
+
+  // コンテキスト値
+  const contextValue = {
+    user,
+    token,
+    loading,
+    register,
+    login,
+    logout,
+    isAuthenticated,
+    hasRole,
+    apiClient
   };
 
   return (
-    <AuthContext.Provider
-      value={{
-        isAuthenticated: !!user,
-        user,
-        login,
-        logout,
-        loading
-      }}
-    >
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );
-}; 
+};
