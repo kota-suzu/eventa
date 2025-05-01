@@ -7,7 +7,7 @@ Sidekiq.configure_server do |config|
 
   # 本番環境のチューニング設定
   # 注: config/sidekiq.ymlでも設定可能。そちらが優先される。
-  config.options[:concurrency] = ENV.fetch("SIDEKIQ_CONCURRENCY", 5).to_i
+  config.concurrency = ENV.fetch("SIDEKIQ_CONCURRENCY", 5).to_i
 end
 
 Sidekiq.configure_client do |config|

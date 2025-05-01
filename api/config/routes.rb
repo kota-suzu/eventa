@@ -1,4 +1,8 @@
 Rails.application.routes.draw do
+  # OpenAPI/Swagger
+  mount Rswag::Ui::Engine => '/api-docs'
+  mount Rswag::Api::Engine => '/api-docs'
+  
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
 
   # メインのヘルスチェックエンドポイント
@@ -9,7 +13,11 @@ Rails.application.routes.draw do
 
   # 本番環境ではルート情報を無効化
   unless ENV["RAILS_SKIP_ROUTES"] == "true"
-    mount Rails::InfoController.to_app => "/rails/info" if Rails.env.development?
+    # Rails 8.0.2では直接Rails::InfoControllerをマウントする代わりに、
+    # infoコントローラーにアクセスできるように設定
+    get "/rails/info" => "rails/info#index" if Rails.env.development?
+    get "/rails/info/routes" => "rails/info#routes" if Rails.env.development?
+    get "/rails/info/properties" => "rails/info#properties" if Rails.env.development?
   end
 
   # Defines the root path route ("/")

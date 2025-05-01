@@ -27,6 +27,7 @@ services:
     build: 
       context: .
       dockerfile: Dockerfile.api
+      target: builder  # 開発環境では必要なツールが入っているbuilderステージを使用
     restart: unless-stopped
     depends_on:
       db:
@@ -35,8 +36,14 @@ services:
         condition: service_healthy
     ports: ["3001:3000"]
     env_file: .env.example
-    # 開発環境ではProcfile.devを使って全プロセスを起動
-    command: bundle exec foreman start -f Procfile.dev
+    environment:
+      - RAILS_ENV=development
+    # 開発環境ではまずbundle installを実行してからForeman起動
+    command: >
+      bash -c "bundle config set --local without '' &&
+              bundle config set --local deployment 'false' &&
+              bundle install --jobs 4 &&
+              bundle exec foreman start -f Procfile.dev"
     volumes:
       - ./api:/app
       - bundle_cache:/usr/local/bundle

@@ -4,7 +4,7 @@ WORKDIR /app
 
 # ビルド時の依存関係のみインストール
 RUN apt-get update -qq && \
-    apt-get upgrade --security-only -y && \
+    apt-get upgrade -y && \
     apt-get install -y --no-install-recommends \
     build-essential \
     default-libmysqlclient-dev \
@@ -18,21 +18,21 @@ RUN apt-get update -qq && \
 
 # Gemfileをコピーしてbundle installを実行
 COPY ./api/Gemfile* ./
-RUN bundle config set --local deployment 'true' && \
-    bundle config set --local without 'development test' && \
-    bundle install
+RUN bundle config set --local deployment 'false' && \
+    bundle install --jobs 4 --retry 3 && \
+    rm -rf ~/.bundle/ "${BUNDLE_PATH}"/ruby/*/cache "${BUNDLE_PATH}"/ruby/*/bundler/gems/*/.git
 
-# JavaScriptアセットのコンパイルが必要な場合
-COPY ./api/package.json ./api/yarn.lock ./
-RUN yarn install --frozen-lockfile
-
-# アプリケーションコードをコピー (アセットのプリコンパイルに必要)
+# アプリケーションコードをコピー
 COPY ./api ./
 
-# アセットをプリコンパイル
+# JavaScriptアセットのコンパイルが必要な場合（package.jsonが存在する場合のみ）
+RUN if [ -f package.json ]; then \
+      yarn install --frozen-lockfile; \
+    fi
+
+# 環境変数の設定のみ行い、assets:precompileはスキップ（APIのみのアプリケーションのため）
 ENV RAILS_ENV=production
 ENV SECRET_KEY_BASE=dummy_key_for_precompile
-RUN bundle exec rails assets:precompile
 
 # 本番用ステージ - 必要なランタイム依存関係のみ含める
 FROM ruby:3.3.2-slim-bookworm AS runtime
@@ -41,7 +41,7 @@ ENV RAILS_ENV=production
 
 # ランタイム依存関係のみインストール
 RUN apt-get update -qq && \
-    apt-get upgrade --security-only -y && \
+    apt-get upgrade -y && \
     apt-get install -y --no-install-recommends \
     libmariadb3 \
     tzdata \
@@ -52,9 +52,6 @@ RUN apt-get update -qq && \
 
 # ビルドしたgemをコピー
 COPY --from=builder /usr/local/bundle /usr/local/bundle
-
-# コンパイル済みアセットをコピー
-COPY --from=builder /app/public/assets /app/public/assets
 
 # アプリケーションコードをコピー
 COPY --from=builder /app .

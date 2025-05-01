@@ -48,19 +48,15 @@ RUN bundle install && \
     rm -rf ~/.bundle/ "${BUNDLE_PATH}"/ruby/*/cache "${BUNDLE_PATH}"/ruby/*/bundler/gems/*/.git && \
     bundle exec bootsnap precompile --gemfile
 
-# Install node modules
-COPY package.json yarn.lock ./
-RUN yarn install --immutable
-
-# Copy application code
+# Install node modules (if package.json exists)
 COPY . .
+RUN if [ -f package.json ]; then \
+      yarn install --immutable; \
+      rm -rf node_modules; \
+    fi
 
 # Precompile bootsnap code for faster boot times
 RUN bundle exec bootsnap precompile app/ lib/
-
-
-RUN rm -rf node_modules
-
 
 # Final stage for app image
 FROM base

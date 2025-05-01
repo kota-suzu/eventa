@@ -29,6 +29,10 @@ gem "kamal", require: false
 # Add HTTP asset caching/compression and X-Sendfile acceleration to Puma [https://github.com/basecamp/thruster/]
 gem "thruster", require: false
 
+# OpenAPI/Swagger ドキュメント生成と管理
+gem "rswag-api"
+gem "rswag-ui"
+
 # Use Active Storage variants [https://guides.rubyonrails.org/active_storage_overview.html#transforming-images]
 # gem "image_processing", "~> 1.2"
 
@@ -51,9 +55,14 @@ group :development, :test do
   # テスト用ライブラリ
   gem "rspec-rails"
   gem "factory_bot_rails"
+  
+  # OpenAPI/Swagger テスト統合用
+  gem "rswag-specs"
 end
 
 group :development do
   # 開発環境で複数プロセスを同時に起動するため
   gem "foreman"
 end
+
+gem "redis", "~> 5.4"

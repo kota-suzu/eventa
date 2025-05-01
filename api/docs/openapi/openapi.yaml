@@ -1,0 +1,1347 @@
+openapi: 3.0.3
+info:
+  title: eventa API
+  description: |
+    イベント管理・チケット販売プラットフォームeventa APIの仕様書です。
+    本APIはREST/JSONで提供され、日時はすべてISO-8601（UTC）形式です。
+  version: '0.1.0'
+  contact:
+    name: eventa API Support
+    email: api-support@eventa.app
+    url: https://developer.eventa.app
+servers:
+  - url: https://api.eventa.app
+    description: 本番環境
+  - url: https://staging-api.eventa.app
+    description: ステージング環境
+  - url: https://dev-api.eventa.app
+    description: 開発環境
+  - url: http://localhost:3000
+    description: ローカル開発環境
+
+# セキュリティスキーム
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: 'Bearer JWTトークンによる認証。Authorization: Bearer <token> 形式で指定'
+
+  # 再利用可能なスキーマ定義
+  schemas:
+    # 共通スキーマ
+    Error:
+      type: object
+      properties:
+        status:
+          type: integer
+          format: int32
+          example: 422
+        error:
+          type: string
+          example: 'validation_error'
+        message:
+          type: string
+          example: '入力内容に誤りがあります。'
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+                example: 'attendee.email'
+              code:
+                type: string
+                example: 'invalid_format'
+              message:
+                type: string
+                example: '有効なメールアドレスを入力してください。'
+
+    # ページネーション用メタ情報
+    Meta:
+      type: object
+      properties:
+        total:
+          type: integer
+          format: int32
+          example: 100
+          description: '全レコード数'
+        page: 
+          type: integer
+          format: int32
+          example: 1
+          description: '現在のページ番号'
+        per_page:
+          type: integer
+          format: int32
+          example: 10
+          description: '1ページあたりのレコード数'
+
+    # ユーザー関連
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          example: '1'
+        type:
+          type: string
+          example: 'users'
+        attributes:
+          type: object
+          properties:
+            email:
+              type: string
+              format: email
+              example: 'taro@example.com'
+            name:
+              type: string
+              example: '山田太郎'
+            role:
+              type: string
+              enum: [admin, organizer, guest]
+              example: 'organizer'
+            created_at:
+              type: string
+              format: date-time
+              example: '2025-05-01T08:30:00Z'
+
+    # イベント関連
+    Event:
+      type: object
+      properties:
+        id:
+          type: string
+          example: '1'
+        type:
+          type: string
+          example: 'events'
+        attributes:
+          type: object
+          properties:
+            name:
+              type: string
+              example: 'Tech Conference 2025'
+            description:
+              type: string
+              example: '最新技術動向の紹介'
+            start_at:
+              type: string
+              format: date-time
+              example: '2025-06-01T10:00:00Z'
+            end_at:
+              type: string
+              format: date-time
+              example: '2025-06-01T18:00:00Z'
+            venue:
+              type: string
+              example: '東京カンファレンスセンター'
+            venue_address:
+              type: string
+              example: '東京都千代田区丸の内1-1-1'
+            venue_map_url:
+              type: string
+              format: uri
+              example: 'https://maps.example.com/venue123'
+            capacity:
+              type: integer
+              example: 300
+            status:
+              type: string
+              enum: [draft, published, cancelled, completed]
+              example: 'published'
+            is_online:
+              type: boolean
+              example: false
+            online_access_info:
+              type: string
+              nullable: true
+              example: null
+            image_url:
+              type: string
+              format: uri
+              example: 'https://example.com/image.jpg'
+            website_url:
+              type: string
+              format: uri
+              example: 'https://conference.example.com'
+            tags:
+              type: array
+              items:
+                type: string
+              example: ['tech', 'ai', 'programming']
+            created_at:
+              type: string
+              format: date-time
+              example: '2025-05-01T10:30:00Z'
+            updated_at:
+              type: string
+              format: date-time
+              example: '2025-05-01T10:30:00Z'
+        relationships:
+          type: object
+          properties:
+            organizer:
+              type: object
+              properties:
+                data:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      example: '1'
+                    type:
+                      type: string
+                      example: 'users'
+            ticket_types:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      type:
+                        type: string
+                        example: 'ticket_types'
+
+    # チケットタイプ関連
+    TicketType:
+      type: object
+      properties:
+        id:
+          type: string
+          example: '1'
+        type:
+          type: string
+          example: 'ticket_types'
+        attributes:
+          type: object
+          properties:
+            name:
+              type: string
+              example: '一般チケット'
+            description:
+              type: string
+              example: 'カンファレンス全日程へのアクセス権'
+            price_cents:
+              type: integer
+              example: 100000
+            currency:
+              type: string
+              example: 'JPY'
+            quantity:
+              type: integer
+              example: 200
+            quantity_sold:
+              type: integer
+              example: 5
+            quantity_available:
+              type: integer
+              example: 195
+            sale_start_at:
+              type: string
+              format: date-time
+              example: '2025-05-15T00:00:00Z'
+            sale_end_at:
+              type: string
+              format: date-time
+              example: '2025-05-31T23:59:59Z'
+            status:
+              type: string
+              enum: [active, inactive, sold_out]
+              example: 'active'
+            max_per_order:
+              type: integer
+              example: 5
+            created_at:
+              type: string
+              format: date-time
+              example: '2025-05-01T14:30:00Z'
+            updated_at:
+              type: string
+              format: date-time
+              example: '2025-05-01T14:30:00Z'
+        relationships:
+          type: object
+          properties:
+            event:
+              type: object
+              properties:
+                data:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      example: '1'
+                    type:
+                      type: string
+                      example: 'events'
+
+    # チケット関連
+    Ticket:
+      type: object
+      properties:
+        id:
+          type: string
+          example: '123'
+        type:
+          type: string
+          example: 'tickets'
+        attributes:
+          type: object
+          properties:
+            code:
+              type: string
+              example: 'EVNT-ABC123'
+            qr_url:
+              type: string
+              format: uri
+              example: 'https://api.eventa.app/tickets/123/qr'
+            status:
+              type: string
+              enum: [confirmed, cancelled, checked_in]
+              example: 'confirmed'
+            purchase_at:
+              type: string
+              format: date-time
+              example: '2025-04-30T09:15:00Z'
+            cancelled_at:
+              type: string
+              format: date-time
+              nullable: true
+            check_in_at:
+              type: string
+              format: date-time
+              nullable: true
+            attendee_name:
+              type: string
+              example: '山田太郎'
+            price_paid_cents:
+              type: integer
+              example: 100000
+        relationships:
+          type: object
+          properties:
+            ticket_type:
+              type: object
+              properties:
+                data:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      example: '1'
+                    type:
+                      type: string
+                      example: 'ticket_types'
+            event:
+              type: object
+              properties:
+                data:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      example: '1'
+                    type:
+                      type: string
+                      example: 'events'
+
+# タグ定義
+tags:
+  - name: 認証
+    description: ユーザー認証関連エンドポイント
+  - name: ユーザー
+    description: ユーザープロフィール管理
+  - name: イベント
+    description: イベント作成・管理
+  - name: チケットタイプ
+    description: チケットタイプ作成・管理
+  - name: チケット
+    description: チケット購入・管理
+  - name: チェックイン
+    description: イベント受付・検証
+
+# APIパス定義
+paths:
+  # 認証系エンドポイント
+  /api/v1/auth/register:
+    post:
+      summary: ユーザー登録
+      description: 新規ユーザーを登録し、認証トークンを取得します
+      tags:
+        - 認証
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user:
+                  type: object
+                  properties:
+                    email:
+                      type: string
+                      format: email
+                    password:
+                      type: string
+                      format: password
+                    password_confirmation:
+                      type: string
+                      format: password
+                    name:
+                      type: string
+                    role:
+                      type: string
+                      enum: [organizer, guest]
+                  required:
+                    - email
+                    - password
+                    - password_confirmation
+                    - name
+                    - role
+      responses:
+        '201':
+          description: ユーザー登録成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/User'
+                  meta:
+                    type: object
+                    properties:
+                      token:
+                        type: string
+                      expires_at:
+                        type: string
+                        format: date-time
+        '422':
+          description: バリデーションエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/auth/login:
+    post:
+      summary: ログイン
+      description: 既存ユーザーのログイン処理を行い、認証トークンを取得します
+      tags:
+        - 認証
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+              required:
+                - email
+                - password
+      responses:
+        '200':
+          description: ログイン成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/User'
+                  meta:
+                    type: object
+                    properties:
+                      token:
+                        type: string
+                      expires_at:
+                        type: string
+                        format: date-time
+                      refresh_token:
+                        type: string
+        '401':
+          description: 認証失敗
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # イベント系エンドポイント
+  /api/v1/events:
+    get:
+      summary: イベント一覧取得
+      description: 公開されているイベント一覧を取得します
+      tags:
+        - イベント
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+          description: ページ番号
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 10
+          description: 1ページあたりの件数
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Event'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+    post:
+      summary: イベント作成
+      description: 新しいイベントを作成します
+      tags:
+        - イベント
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                event:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    description:
+                      type: string
+                    start_at:
+                      type: string
+                      format: date-time
+                    end_at:
+                      type: string
+                      format: date-time
+                    venue:
+                      type: string
+                    venue_address:
+                      type: string
+                    venue_map_url:
+                      type: string
+                      format: uri
+                    capacity:
+                      type: integer
+                    image_url:
+                      type: string
+                      format: uri
+                    website_url:
+                      type: string
+                      format: uri
+                    status:
+                      type: string
+                      enum: [draft, published]
+                    is_online:
+                      type: boolean
+                    online_access_info:
+                      type: string
+                      nullable: true
+                    tags:
+                      type: array
+                      items:
+                        type: string
+                  required:
+                    - name
+                    - start_at
+                    - end_at
+      responses:
+        '201':
+          description: イベント作成成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Event'
+        '401':
+          description: 認証エラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: バリデーションエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/events/{id}:
+    get:
+      summary: イベント詳細取得
+      description: 特定のイベント詳細を取得します
+      tags:
+        - イベント
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: イベントID
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Event'
+        '404':
+          description: イベント不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    patch:
+      summary: イベント更新
+      description: イベント情報を更新します
+      tags:
+        - イベント
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: イベントID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                event:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    description:
+                      type: string
+                    start_at:
+                      type: string
+                      format: date-time
+                    end_at:
+                      type: string
+                      format: date-time
+                    venue:
+                      type: string
+                    status:
+                      type: string
+                      enum: [draft, published, cancelled]
+                    # その他のフィールドも同様に
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Event'
+        '401':
+          description: 認証エラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 権限エラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: イベント不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: バリデーションエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      summary: イベント削除
+      description: イベントを削除します
+      tags:
+        - イベント
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: イベントID
+      responses:
+        '204':
+          description: 削除成功
+        '401':
+          description: 認証エラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 権限エラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: イベント不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # チケットタイプ系エンドポイント
+  /api/v1/events/{event_id}/ticket_types:
+    get:
+      summary: チケットタイプ一覧取得
+      description: 特定イベントのチケットタイプ一覧を取得します
+      tags:
+        - チケットタイプ
+      parameters:
+        - name: event_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: イベントID
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TicketType'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '404':
+          description: イベント不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      summary: チケットタイプ作成
+      description: 特定イベントのチケットタイプを作成します
+      tags:
+        - チケットタイプ
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: event_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: イベントID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ticket_type:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    description:
+                      type: string
+                    price_cents:
+                      type: integer
+                    currency:
+                      type: string
+                    quantity:
+                      type: integer
+                    sale_start_at:
+                      type: string
+                      format: date-time
+                    sale_end_at:
+                      type: string
+                      format: date-time
+                    status:
+                      type: string
+                      enum: [active, inactive]
+                    max_per_order:
+                      type: integer
+                  required:
+                    - name
+                    - price_cents
+                    - currency
+                    - quantity
+      responses:
+        '201':
+          description: 作成成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/TicketType'
+        '401':
+          description: 認証エラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 権限エラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: イベント不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: バリデーションエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/ticket_types/{id}:
+    patch:
+      summary: チケットタイプ更新
+      description: チケットタイプの情報を更新します
+      tags:
+        - チケットタイプ
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: チケットタイプID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ticket_type:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    description:
+                      type: string
+                    price_cents:
+                      type: integer
+                    status:
+                      type: string
+                      enum: [active, inactive]
+                    # その他のフィールドも同様に
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/TicketType'
+        '401':
+          description: 認証エラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 権限エラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: チケットタイプ不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: バリデーションエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      summary: チケットタイプ削除
+      description: チケットタイプを削除します
+      tags:
+        - チケットタイプ
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: チケットタイプID
+      responses:
+        '204':
+          description: 削除成功
+        '401':
+          description: 認証エラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 権限エラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: チケットタイプ不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: 既に販売済みのチケットがあるため削除不可
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # チケット系エンドポイント
+  /api/v1/ticket_types/{id}/purchase:
+    post:
+      summary: チケット購入
+      description: チケットを購入します
+      tags:
+        - チケット
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: チケットタイプID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                quantity:
+                  type: integer
+                  minimum: 1
+                attendee:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    email:
+                      type: string
+                      format: email
+                    phone:
+                      type: string
+                  required:
+                    - name
+                    - email
+                payment:
+                  type: object
+                  properties:
+                    method:
+                      type: string
+                      enum: [stripe, paypal]
+                    token:
+                      type: string
+                  required:
+                    - method
+                    - token
+              required:
+                - quantity
+                - attendee
+                - payment
+      responses:
+        '201':
+          description: 購入成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Ticket'
+        '400':
+          description: リクエスト不正
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: チケットタイプ不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: バリデーションエラーまたは在庫不足
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/tickets/{id}:
+    get:
+      summary: チケット詳細取得
+      description: チケットの詳細情報を取得します
+      tags:
+        - チケット
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: チケットID
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Ticket'
+        '404':
+          description: チケット不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/tickets/{id}/cancel:
+    patch:
+      summary: チケットキャンセル
+      description: チケットをキャンセルします
+      tags:
+        - チケット
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: チケットID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                refund_requested:
+                  type: boolean
+              required:
+                - reason
+      responses:
+        '200':
+          description: キャンセル成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Ticket'
+        '401':
+          description: 認証エラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 権限エラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: チケット不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: キャンセル不可（イベント開始後など）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # 受付・チェックイン系エンドポイント
+  /api/v1/tickets/{id}/check_in:
+    put:
+      summary: チケットチェックイン
+      description: イベント会場でのチケットチェックイン処理を行います
+      tags:
+        - チェックイン
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: チケットID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                location:
+                  type: string
+                operator_note:
+                  type: string
+      responses:
+        '200':
+          description: チェックイン成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Ticket'
+        '401':
+          description: 認証エラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 権限エラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: チケット不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: チェックイン済みまたはキャンセル済みチケット
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/events/{event_id}/check_ins:
+    get:
+      summary: チェックイン履歴取得
+      description: イベントのチェックイン履歴を取得します
+      tags:
+        - チェックイン
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: event_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: イベントID
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+          description: ページ番号
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 10
+          description: 1ページあたりの件数
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        type:
+                          type: string
+                          example: 'check_in_records'
+                        attributes:
+                          type: object
+                          properties:
+                            check_in_at:
+                              type: string
+                              format: date-time
+                            location:
+                              type: string
+                            operator_note:
+                              type: string
+                            ticket_code:
+                              type: string
+                            attendee_name:
+                              type: string
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '401':
+          description: 認証エラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 権限エラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: イベント不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/tickets/validate:
+    post:
+      summary: チケット検証
+      description: オフライン環境でチケットコードを検証します
+      tags:
+        - チェックイン
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ticket_code:
+                  type: string
+              required:
+                - ticket_code
+      responses:
+        '200':
+          description: 検証成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid:
+                    type: boolean
+                  ticket:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      code:
+                        type: string
+                      status:
+                        type: string
+                      attendee_name:
+                        type: string
+                      event_name:
+                        type: string
+                      ticket_type_name:
+                        type: string
+                  validation_timestamp:
+                    type: string
+                    format: date-time
+        '401':
+          description: 認証エラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 権限エラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: チケット不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
