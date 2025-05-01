@@ -28,6 +28,8 @@
 
 # APIディレクトリの Bundler設定
 /api/.bundle
+/api/log/**/*.log
+/api/tmp/**/*.log
 
 # OS固有
 .DS_Store

@@ -1,7 +1,11 @@
-.PHONY: dev reset-db help test lint ci logs console shell restart migrate seed deploy seed-test docker-clean db-apply db-dry-run db-export
+.PHONY: dev reset-db help test lint ci logs console shell restart migrate seed deploy seed-test docker-clean db-apply db-dry-run db-export stop
+
+# Ridgepoleコマンド共通部分
+RIDGEPOLE_CMD = docker compose exec -e DB_HOST=db -e DATABASE_PASSWORD=$${DATABASE_PASSWORD:-rootpass} api bundle exec ridgepole -c config/database.yml -E development
 
 help: ## 🔍 利用可能なコマンド一覧
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-12s\033[0m %s\n", $$1, $$2}'
+	@echo "\033[1;34m== Eventa API 開発ツール ==\033[0m"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-12s\033[0m %s\n", $$1, $$2}' | column -t
 
 dev: ## ▶️ フルスタック起動
 	docker compose up -d --build
@@ -12,6 +16,9 @@ reset-db: ## 💣 DB 初期化
 
 lint: ## 🧹 コード品質チェック
 	docker compose exec api bundle exec standardrb
+
+lint-auto: ## 🧹 コード品質チェック (自動修正)
+	docker compose exec api bundle exec standardrb --fix
 
 test: ## 🧪 テスト実行
 	docker compose exec api bundle exec rspec
@@ -56,12 +63,14 @@ docs: ## 📚 APIドキュメントを生成
 
 # Ridgepole関連のコマンド
 db-apply: ## 📊 Schemafileの変更をDBに適用
-	docker compose exec -e DB_HOST=db -e DATABASE_PASSWORD=rootpass api bundle exec ridgepole -c config/database.yml -E development --apply -f db/Schemafile.rb
+	$(RIDGEPOLE_CMD) --apply -f db/Schemafile
 
 db-dry-run: ## 🔍 Schemafileの変更をシミュレーション
-	docker compose exec -e DB_HOST=db -e DATABASE_PASSWORD=rootpass api bundle exec ridgepole -c config/database.yml -E development --apply --dry-run -f db/Schemafile.rb
+	$(RIDGEPOLE_CMD) --apply --dry-run -f db/Schemafile
+	@echo "\n警告: 空のSchemafileは全テーブル削除の危険があります。先にdb-exportを実行してください。"
+	@docker compose exec api bash -c 'grep -q . db/Schemafile || (echo "\033[31mエラー: Schemafileが空です！\033[0m"; exit 1)'
 
 db-export: ## 📤 現在のDBスキーマをSchemafileにエクスポート
-	docker compose exec -e DB_HOST=db -e DATABASE_PASSWORD=rootpass api bundle exec ridgepole -c config/database.yml -E development --export -o db/Schemafile.rb
+	$(RIDGEPOLE_CMD) --export -o db/Schemafile
 
 .DEFAULT_GOAL := help

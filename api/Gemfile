@@ -58,7 +58,7 @@ group :development, :test do
   # テスト用ライブラリ
   gem "rspec-rails"
   gem "factory_bot_rails"
-  
+
   # OpenAPI/Swagger テスト統合用
   gem "rswag-specs"
 end

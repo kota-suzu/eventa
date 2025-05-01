@@ -158,7 +158,7 @@ components:
             online_access_info:
               type: string
               nullable: true
-              example: null
+              example: ''
             image_url:
               type: string
               format: uri

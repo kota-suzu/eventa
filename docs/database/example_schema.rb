@@ -1,3 +1,7 @@
+# NOTE: これはサンプルです。本番の api/db/Schemafile とは別物です。
+# 実際のデータベース設計はプロジェクトリポジトリの api/db/Schemafile を参照してください。
+# このファイルは Ridgepole の基本的な使用方法を説明するためのものです。
+
 # Schemafile
 # このファイルにテーブル定義を記述します
 
@@ -34,4 +38,11 @@ create_table "participants", force: :cascade do |t|
   t.timestamps
   
   t.index ["user_id", "event_id"], name: "index_participants_on_user_id_and_event_id", unique: true
+end
+
+# bulk_changeブロックで複数の変更をまとめてトランザクション処理する例
+bulk_change do
+  add_column "users", "last_login_at", :datetime
+  add_column "users", "login_count", :integer, default: 0
+  add_column "users", "account_status", :string, default: "active"
 end 

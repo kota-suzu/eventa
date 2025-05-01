@@ -172,6 +172,27 @@ bundle install
 3. ブランチをプッシュ (`git push origin feature/amazing-feature`)
 4. Pull Requestを作成
 
+## データベース管理
+
+このプロジェクトでは [Ridgepole](https://github.com/ridgepole/ridgepole) を使用してデータベースのスキーマ管理を行っています。通常のRailsマイグレーションの代わりに、`db/Schemafile` で宣言的にスキーマを定義します。
+
+### 基本的な使い方
+
+```bash
+# スキーマ変更のシミュレーション
+make db-dry-run
+
+# スキーマ変更の適用
+make db-apply
+
+# 現在のDBスキーマをエクスポート
+make db-export
+```
+
+詳細な使用方法は `docs/database/ridgepole_usage.md` を参照してください。
+
+**注意**: 空のSchemafileを適用すると全テーブルが削除される危険があります。必ず先に `make db-export` でスキーマを出力してから編集を始めてください。
+
 ---
 
 © 2025 Eventa Team

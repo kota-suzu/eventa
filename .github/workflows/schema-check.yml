@@ -1,0 +1,48 @@
+name: データベーススキーマチェック
+
+on:
+  pull_request:
+    paths:
+      - 'api/db/**'
+      - 'db/**'
+      - 'Makefile'
+      - 'docker-compose.yml'
+
+jobs:
+  check-schema:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Schemafileパス一貫性チェック
+        run: |
+          # Schemafileが正しい場所にあるか確認（apiサービスのマウントポイントを考慮）
+          if [ -f db/Schemafile ]; then
+            echo "✅ db/Schemafileが正しく配置されています"
+          elif [ -f api/db/Schemafile ]; then
+            echo "❌ エラー: Schemafileは api/db/ ではなく db/ に配置する必要があります"
+            echo "   修正方法: mv api/db/Schemafile db/"
+            exit 1
+          else
+            echo "❌ エラー: Schemafileが見つかりません。先に make db-export を実行してください"
+            exit 1
+          fi
+      
+      - name: Schemafile空ファイルチェック
+        run: |
+          if [ -s db/Schemafile ]; then
+            echo "✅ Schemafileは空ではありません"
+          else
+            echo "❌ エラー: Schemafileが空です。先に make db-export を実行してください"
+            exit 1
+          fi
+            
+      - name: Makefileパス参照チェック
+        run: |
+          # Makefileが正しいパスを参照しているか確認
+          if grep -q "db/Schemafile" Makefile; then
+            echo "✅ MakefileはSchemafileを正しく参照しています"
+          else
+            echo "❌ エラー: MakefileがSchemafileを正しく参照していません"
+            exit 1
+          fi 
