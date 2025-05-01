@@ -1,4 +1,4 @@
-.PHONY: dev reset-db help test lint ci logs console shell restart migrate seed deploy seed-test docker-clean
+.PHONY: dev reset-db help test lint ci logs console shell restart migrate seed deploy seed-test docker-clean db-apply db-dry-run db-export
 
 help: ## 🔍 利用可能なコマンド一覧
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -53,5 +53,15 @@ stop: ## ⏹ コンテナを停止
 
 docs: ## 📚 APIドキュメントを生成
 	docker compose exec api bin/rails rswag:specs:swaggerize
+
+# Ridgepole関連のコマンド
+db-apply: ## 📊 Schemafileの変更をDBに適用
+	docker compose exec -e DB_HOST=db -e DATABASE_PASSWORD=rootpass api bundle exec ridgepole -c config/database.yml -E development --apply -f db/Schemafile.rb
+
+db-dry-run: ## 🔍 Schemafileの変更をシミュレーション
+	docker compose exec -e DB_HOST=db -e DATABASE_PASSWORD=rootpass api bundle exec ridgepole -c config/database.yml -E development --apply --dry-run -f db/Schemafile.rb
+
+db-export: ## 📤 現在のDBスキーマをSchemafileにエクスポート
+	docker compose exec -e DB_HOST=db -e DATABASE_PASSWORD=rootpass api bundle exec ridgepole -c config/database.yml -E development --export -o db/Schemafile.rb
 
 .DEFAULT_GOAL := help
