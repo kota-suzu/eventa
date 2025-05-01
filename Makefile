@@ -1,4 +1,4 @@
-.PHONY: dev reset-db help test lint ci logs console shell restart migrate seed deploy seed-test docker-clean db-apply db-dry-run db-export stop
+.PHONY: dev reset-db help test lint lint-auto ci logs console shell restart migrate seed deploy seed-test docker-clean db-apply db-dry-run db-export stop frontend frontend-logs
 
 # Ridgepoleコマンド共通部分
 RIDGEPOLE_CMD = docker compose exec -e DB_HOST=db -e DATABASE_PASSWORD=$${DATABASE_PASSWORD:-rootpass} api bundle exec ridgepole -c config/database.yml -E development
@@ -10,6 +10,12 @@ help: ## 🔍 利用可能なコマンド一覧
 dev: ## ▶️ フルスタック起動
 	docker compose up -d --build
 	docker compose exec api bin/rails db:prepare
+
+frontend: ## 🌐 フロントエンド開発サーバー起動
+	docker compose up -d frontend
+
+frontend-logs: ## 📋 フロントエンドのログを表示
+	docker compose logs -f frontend
 
 reset-db: ## 💣 DB 初期化
 	docker compose down -v && docker compose up -d db
