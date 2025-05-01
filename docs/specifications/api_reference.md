@@ -222,7 +222,7 @@ Authorization: Bearer <token>
     "website_url": "https://conference.example.com",
     "status": "draft",
     "is_online": false,
-    "online_access_info": null,
+    "online_access_info": "",
     "tags": ["tech", "ai", "programming"]
   }
 }
@@ -245,7 +245,7 @@ Authorization: Bearer <token>
       "capacity": 300,
       "status": "draft",
       "is_online": false,
-      "online_access_info": null,
+      "online_access_info": "",
       "image_url": "https://example.com/image.jpg",
       "website_url": "https://conference.example.com",
       "tags": ["tech", "ai", "programming"],
@@ -298,7 +298,7 @@ Authorization: Bearer <token>
       "capacity": 300,
       "status": "published",
       "is_online": false,
-      "online_access_info": null,
+      "online_access_info": "",
       "image_url": "https://example.com/image.jpg",
       "website_url": "https://conference.example.com",
       "tags": ["tech", "ai", "programming"],
