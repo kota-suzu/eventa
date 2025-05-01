@@ -31,12 +31,36 @@
 /api/log/**/*.log
 /api/tmp/**/*.log
 
+# フロントエンド関連
+/frontend/.next/
+/frontend/node_modules/
+/frontend/.env*.local
+/frontend/npm-debug.log*
+/frontend/yarn-debug.log*
+/frontend/yarn-error.log*
+/frontend/build/
+/frontend/out/
+/frontend/.vercel
+/frontend/.turbo
+
+# テスト出力
+/api/coverage/
+/frontend/coverage/
+
+# ビルドキャッシュ
+.sass-cache/
+.cache/
+.parcel-cache/
+
 # OS固有
 .DS_Store
 Thumbs.db
+**/.DS_Store
 
 # エディタ設定
 /.idea
 /.vscode
+**/.idea/
+**/.vscode/
 *.swp
 *~
