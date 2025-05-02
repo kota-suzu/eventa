@@ -1,43 +1,40 @@
-import Head from 'next/head'
-import { useEffect, useState } from 'react'
-import styles from '../styles/Home.module.css'
-import Header from '../components/Header'
+import { useState, useEffect } from 'react';
+import Head from 'next/head';
+import Link from 'next/link';
+import styles from '../styles/Home.module.css';
+import { useAuth } from '../contexts/AuthContext';
+import Header from '../components/Header';
 
 export default function Home() {
   const [events, setEvents] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
+  const [isLoading, setIsLoading] = useState(false);
+  const { isAuthenticated } = useAuth();
+  
+  // 新着イベント取得（例）
   useEffect(() => {
-    // APIからイベント一覧を取得するサンプルコード
-    // 実際のエンドポイントに合わせて調整が必要
     const fetchEvents = async () => {
       try {
-        const response = await fetch('http://localhost:3001/api/events');
-        if (!response.ok) {
-          throw new Error('APIからのデータ取得に失敗しました');
-        }
-        const data = await response.json();
-        setEvents(data);
-        setLoading(false);
+        setIsLoading(true);
+        // 本番ではAPIから取得
+        // const response = await fetch('/api/featured-events');
+        // const data = await response.json();
+        
+        // ダミーデータ
+        setTimeout(() => {
+          setEvents([
+            { id: 1, title: '新製品発表会', imageUrl: '/images/event1.jpg' },
+            { id: 2, title: 'テックカンファレンス', imageUrl: '/images/event2.jpg' },
+            { id: 3, title: 'デザインワークショップ', imageUrl: '/images/event3.jpg' }
+          ]);
+          setIsLoading(false);
+        }, 500);
       } catch (error) {
-        setError(error.message);
-        setLoading(false);
+        console.error('イベント取得エラー:', error);
+        setIsLoading(false);
       }
     };
-
-    // APIが準備できたらコメントを外す
-    // fetchEvents();
     
-    // APIが準備できるまではダミーデータを使用
-    setTimeout(() => {
-      setEvents([
-        { id: 1, title: '新製品発表会', date: '2025-01-15', location: '東京' },
-        { id: 2, title: 'テックカンファレンス', date: '2025-02-20', location: '大阪' },
-        { id: 3, title: 'デザインワークショップ', date: '2025-03-10', location: '京都' },
-      ]);
-      setLoading(false);
-    }, 1000);
+    fetchEvents();
   }, []);
 
   return (
@@ -51,61 +48,138 @@ export default function Home() {
       <Header />
 
       <main className={styles.main}>
-        <h1 className={styles.title}>
-          <span className={styles.highlight}>Eventa</span>へようこそ
-        </h1>
+        {/* ヒーローセクション */}
+        <section className={styles.hero}>
+          <div className={styles.heroContent}>
+            <h1 className={styles.title}>
+              <span className={styles.highlight}>Eventa</span>へようこそ
+            </h1>
 
-        <p className={styles.description}>
-          簡単にイベントを作成、管理、共有できるプラットフォーム
-        </p>
+            <p className={styles.description}>
+              簡単にイベントを作成、管理、共有できるプラットフォーム
+            </p>
 
-        <div className={styles.grid}>
-          <div className={styles.card}>
-            <h2>イベントを作成 &rarr;</h2>
-            <p>新しいイベントを数分で作成して、参加者を招待しましょう。</p>
-          </div>
-
-          <div className={styles.card}>
-            <h2>イベントを探す &rarr;</h2>
-            <p>あなたの興味に合わせたイベントを見つけて参加しましょう。</p>
+            {!isAuthenticated && (
+              <div className={styles.ctaContainer}>
+                <h2 className={styles.ctaTitle}>今すぐEventa を始めましょう</h2>
+                <div className={styles.ctaButtons}>
+                  <Link href="/register" className={styles.primaryButton}>
+                    無料で新規登録
+                  </Link>
+                  <Link href="/login" className={styles.secondaryButton}>
+                    ログイン
+                  </Link>
+                </div>
+                <p className={styles.ctaDescription}>
+                  既に多くの方がEventaでイベントを管理しています
+                </p>
+              </div>
+            )}
+            
+            {isAuthenticated && (
+              <div className={styles.ctaContainer}>
+                <div className={styles.ctaButtons}>
+                  <Link href="/dashboard" className={styles.primaryButton}>
+                    ダッシュボードへ
+                  </Link>
+                  <Link href="/events" className={styles.secondaryButton}>
+                    イベントを探す
+                  </Link>
+                </div>
+              </div>
+            )}
           </div>
           
-          <div className={styles.card}>
-            <h2>管理を簡単に &rarr;</h2>
-            <p>参加者の管理、出欠確認、リマインダー送信が簡単にできます。</p>
+          <div className={styles.heroImage}>
+            <img src="/images/hero-image.svg" alt="イベント管理" />
           </div>
-
-          <div className={styles.card}>
-            <h2>分析と改善 &rarr;</h2>
-            <p>イベントのフィードバックを集めて、次回の改善に活かしましょう。</p>
+        </section>
+        
+        {/* 特徴セクション */}
+        <section className={styles.features}>
+          <h2 className={styles.sectionTitle}>Eventaの特徴</h2>
+          <div className={styles.featureGrid}>
+            <div className={styles.featureCard}>
+              <div className={styles.featureIcon}>📅</div>
+              <h3 className={styles.featureTitle}>イベントを作成</h3>
+              <p className={styles.featureDescription}>
+                新しいイベントを数分で作成して、参加者を招待しましょう。
+              </p>
+            </div>
+            
+            <div className={styles.featureCard}>
+              <div className={styles.featureIcon}>🔍</div>
+              <h3 className={styles.featureTitle}>イベントを探す</h3>
+              <p className={styles.featureDescription}>
+                あなたの興味に合わせたイベントを見つけて参加しましょう。
+              </p>
+            </div>
+            
+            <div className={styles.featureCard}>
+              <div className={styles.featureIcon}>📊</div>
+              <h3 className={styles.featureTitle}>管理を簡単に</h3>
+              <p className={styles.featureDescription}>
+                参加者の管理、出欠確認、リマインダー送信が簡単にできます。
+              </p>
+            </div>
+            
+            <div className={styles.featureCard}>
+              <div className={styles.featureIcon}>📈</div>
+              <h3 className={styles.featureTitle}>分析と改善</h3>
+              <p className={styles.featureDescription}>
+                イベントのフィードバックを集めて、次回の改善に活かしましょう。
+              </p>
+            </div>
           </div>
-        </div>
-
-        <section className={styles.eventsSection}>
+        </section>
+        
+        {/* 今後のイベント */}
+        <section className={styles.upcomingEvents}>
           <h2 className={styles.sectionTitle}>今後のイベント</h2>
-          
-          {loading ? (
-            <p>イベントを読み込み中...</p>
-          ) : error ? (
-            <p className={styles.error}>{error}</p>
+          {isLoading ? (
+            <div className={styles.loading}>読み込み中...</div>
           ) : (
-            <div className={styles.eventList}>
+            <div className={styles.eventGrid}>
               {events.map((event) => (
                 <div key={event.id} className={styles.eventCard}>
-                  <h3>{event.title}</h3>
-                  <p>日時: {event.date}</p>
-                  <p>場所: {event.location}</p>
-                  <button className={styles.button}>詳細を見る</button>
+                  <div className={styles.eventImage}>
+                    <img src={event.imageUrl || '/images/event-default.jpg'} alt={event.title} />
+                  </div>
+                  <div className={styles.eventInfo}>
+                    <h3 className={styles.eventTitle}>{event.title}</h3>
+                    <Link href={`/events/${event.id}`} className={styles.eventLink}>
+                      詳細を見る
+                    </Link>
+                  </div>
                 </div>
               ))}
             </div>
           )}
+          
+          <div className={styles.viewAllContainer}>
+            <Link href="/events" className={styles.viewAllLink}>
+              すべてのイベントを見る
+            </Link>
+          </div>
         </section>
       </main>
 
       <footer className={styles.footer}>
-        <p>&copy; 2025 Eventa Team - すべての権利を保有</p>
+        <div className={styles.footerContent}>
+          <div className={styles.footerLogo}>
+            Eventa
+          </div>
+          <div className={styles.footerLinks}>
+            <Link href="/about" className={styles.footerLink}>概要</Link>
+            <Link href="/terms" className={styles.footerLink}>利用規約</Link>
+            <Link href="/privacy" className={styles.footerLink}>プライバシーポリシー</Link>
+            <Link href="/contact" className={styles.footerLink}>お問い合わせ</Link>
+          </div>
+          <div className={styles.copyright}>
+            &copy; {new Date().getFullYear()} Eventa. All rights reserved.
+          </div>
+        </div>
       </footer>
     </div>
-  )
+  );
 } 

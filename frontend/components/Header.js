@@ -6,6 +6,7 @@ import { useState, useEffect, useRef } from 'react'
 export default function Header() {
   const { isAuthenticated, user, logout, loading } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [logoutInProgress, setLogoutInProgress] = useState(false);
   const menuRef = useRef(null);
 
   const toggleMenu = () => {
@@ -26,6 +27,33 @@ export default function Header() {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  // ログアウト処理のハンドラー
+  const handleLogout = (e) => {
+    e.preventDefault();
+    // ダブルクリック防止
+    if (logoutInProgress) return;
+    
+    try {
+      setLogoutInProgress(true);
+      console.log('Logout button clicked');
+      
+      // ログアウト処理を実行
+      const result = logout();
+      console.log('Logout result:', result);
+      
+      // メニューを閉じる
+      setIsMenuOpen(false);
+    } catch (error) {
+      console.error('Error during logout:', error);
+      alert('ログアウト処理中にエラーが発生しました。ページをリロードしてお試しください。');
+    } finally {
+      // 少し遅延させてから処理中フラグをリセット
+      setTimeout(() => {
+        setLogoutInProgress(false);
+      }, 500);
+    }
+  };
 
   return (
     <header className={styles.header}>
@@ -73,11 +101,12 @@ export default function Header() {
                         プロフィール編集
                       </Link>
                       <button 
-                        onClick={logout} 
+                        onClick={handleLogout} 
                         className={styles.dropdownItem}
                         type="button"
+                        disabled={logoutInProgress}
                       >
-                        ログアウト
+                        {logoutInProgress ? 'ログアウト中...' : 'ログアウト'}
                       </button>
                     </div>
                   )}
@@ -87,7 +116,7 @@ export default function Header() {
                   <Link href="/login" className={styles.login}>
                     ログイン
                   </Link>
-                  <Link href="/signup" className={styles.signup}>
+                  <Link href="/register" className={styles.signup}>
                     登録
                   </Link>
                 </>

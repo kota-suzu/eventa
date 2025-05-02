@@ -1,34 +1,10 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { useRouter } from 'next/router';
-import axios from 'axios';
-
-// APIのURLを環境変数から取得
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
-
-// 専用のaxiosインスタンスを作成
-const api = axios.create({
-  baseURL: API_URL
-});
-
-// ローカルストレージのSSR安全なアクセス
-const getFromStorage = (key) => {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem(key);
-};
-
-const saveToStorage = (key, value) => {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(key, value);
-};
-
-const removeFromStorage = (key) => {
-  if (typeof window === 'undefined') return;
-  localStorage.removeItem(key);
-};
+import { api, getAuthToken, setAuthToken, clearAuth, getUserData, setUserData } from '../utils/auth';
 
 export const AuthContext = createContext();
 
-// 便利なカスタムフック
+// カスタムフック
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }) => {
@@ -37,49 +13,66 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  // トークンをAPIクライアントに設定する関数
-  const setAuthToken = (token) => {
-    if (token) {
-      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    } else {
-      delete api.defaults.headers.common['Authorization'];
-    }
-  };
-
-  // 初期化時にローカルストレージからトークンを取得
+  // 初期化時に認証状態を復元
   useEffect(() => {
-    const storedToken = getFromStorage('auth_token');
-    const storedUser = getFromStorage('user');
-
-    if (storedToken && storedUser) {
-      setToken(storedToken);
-      setUser(JSON.parse(storedUser));
-      
-      // トークンをAPIクライアントにセット
-      setAuthToken(storedToken);
-    }
-
-    setLoading(false);
+    const initAuth = async () => {
+      try {
+        // トークンの取得
+        const storedToken = getAuthToken();
+        
+        if (storedToken) {
+          setToken(storedToken);
+          
+          // ユーザー情報取得（セッションストレージまたはAPIから）
+          let userData = getUserData();
+          
+          // セッションストレージにデータがなければAPIから再取得
+          if (!userData) {
+            try {
+              // APIからユーザー情報取得
+              const response = await api.get('/auth/me');
+              userData = response.data.user;
+              // セッションストレージに保存
+              setUserData(userData);
+            } catch (error) {
+              console.warn('ユーザー情報の再取得に失敗:', error);
+              // トークンが無効な場合は認証情報をクリア
+              clearAuth();
+              setToken(null);
+              setUser(null);
+            }
+          }
+          
+          if (userData) {
+            setUser(userData);
+          }
+        }
+      } catch (error) {
+        console.error('認証状態の初期化エラー:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    initAuth();
   }, []);
 
-  // ユーザー登録処理 - 拡張された戻り値
+  // ユーザー登録処理
   const register = async (userData) => {
     try {
-      const response = await api.post(`/auth/register`, userData);
+      setLoading(true);
+      const response = await api.post('/auth/register', userData);
       
       if (response.status === 201) {
         const { user, token } = response.data;
         
-        // トークンとユーザー情報を保存
-        saveToStorage('auth_token', token);
-        saveToStorage('user', JSON.stringify(user));
-        
-        // 状態を更新
-        setUser(user);
+        // トークンの保存
+        setAuthToken(token);
         setToken(token);
         
-        // トークンをAPIクライアントにセット
-        setAuthToken(token);
+        // ユーザー情報の保存
+        setUserData(user);
+        setUser(user);
         
         return { ok: true, user };
       }
@@ -90,30 +83,31 @@ export const AuthProvider = ({ children }) => {
         ok: false, 
         message: error.response?.data?.errors?.join(', ') || '登録処理中にエラーが発生しました' 
       };
+    } finally {
+      setLoading(false);
     }
   };
 
-  // ログイン処理 - 拡張された戻り値
-  const login = async (email, password) => {
+  // ログイン処理
+  const login = async (email, password, remember = false) => {
     try {
-      const response = await api.post(`/auth/login`, {
+      setLoading(true);
+      const response = await api.post('/auth/login', {
         email,
-        password
+        password,
+        remember
       });
       
       if (response.status === 200) {
         const { user, token } = response.data;
         
-        // トークンとユーザー情報を保存
-        saveToStorage('auth_token', token);
-        saveToStorage('user', JSON.stringify(user));
-        
-        // 状態を更新
-        setUser(user);
+        // トークンの保存
+        setAuthToken(token, remember);
         setToken(token);
         
-        // トークンをAPIクライアントにセット
-        setAuthToken(token);
+        // ユーザー情報の保存
+        setUserData(user);
+        setUser(user);
         
         return { ok: true, user };
       }
@@ -124,24 +118,36 @@ export const AuthProvider = ({ children }) => {
         ok: false, 
         message: error.response?.data?.error || 'ログイン中にエラーが発生しました' 
       };
+    } finally {
+      setLoading(false);
     }
   };
 
   // ログアウト処理
   const logout = () => {
-    // トークンとユーザー情報をクリア
-    removeFromStorage('auth_token');
-    removeFromStorage('user');
-    
-    // 状態を更新
-    setUser(null);
-    setToken(null);
-    
-    // APIクライアントからトークンを削除
-    setAuthToken(null);
-    
-    // ホームへリダイレクト
-    router.push('/login');
+    try {
+      // デバッグ用ログ
+      console.log('Logout process started in AuthContext');
+      
+      // 認証情報をクリア
+      clearAuth();
+      
+      // 状態を更新
+      setUser(null);
+      setToken(null);
+      
+      console.log('State cleared, redirecting...');
+      
+      // 遅延してリダイレクト (Next.jsの状態更新を待つ)
+      setTimeout(() => {
+        router.push('/');
+      }, 100);
+      
+      return true;
+    } catch (error) {
+      console.error('Logout error:', error);
+      return false;
+    }
   };
   
   // 認証状態のチェック
@@ -152,11 +158,8 @@ export const AuthProvider = ({ children }) => {
   // ユーザーロールに基づく権限チェック
   const hasRole = (role) => {
     if (!user) return false;
-    return user.role === role;
+    return user.role === role || user.attributes?.role === role;
   };
-
-  // APIクライアントを公開
-  const apiClient = api;
 
   // コンテキスト値
   const contextValue = {
@@ -168,7 +171,7 @@ export const AuthProvider = ({ children }) => {
     logout,
     isAuthenticated,
     hasRole,
-    apiClient
+    apiClient: api
   };
 
   return (

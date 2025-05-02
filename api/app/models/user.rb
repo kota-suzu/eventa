@@ -2,7 +2,7 @@ class User < ApplicationRecord
   has_secure_password
 
   # role を enum として定義
-  enum role: {guest: 0, organizer: 1, admin: 2}, _default: :guest
+  enum :role, {guest: 0, organizer: 1, admin: 2}, default: :guest
 
   # バリデーション
   validates :email, presence: true,

@@ -1,6 +1,6 @@
 class JsonWebToken
-  # 秘密鍵をconfigに一元化。テスト時に変更しやすくする
-  SECRET = Rails.configuration.x.jwt_secret || Rails.application.credentials.secret_key_base
+  # 秘密鍵を確実に文字列として取得
+  SECRET = Rails.configuration.x.jwt[:secret].to_s
 
   class << self
     # JWTトークンのエンコード - expを自動付与
