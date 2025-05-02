@@ -1,4 +1,4 @@
-.PHONY: dev reset-db help test lint lint-auto ci logs console shell restart migrate seed deploy seed-test docker-clean db-apply db-dry-run db-export stop frontend frontend-logs check-all check-all-report fix-all check-frontend setup-check full-stack-check
+.PHONY: dev reset-db help test lint lint-auto ci logs console shell restart migrate seed deploy seed-test docker-clean db-apply db-dry-run db-export stop frontend frontend-logs check-all check-all-report fix-all check-frontend setup-check full-stack-check frontend-fix frontend-health frontend-deps
 
 # Ridgepoleコマンド共通部分
 RIDGEPOLE_CMD = docker compose exec -e DB_HOST=db -e DATABASE_PASSWORD=$${DATABASE_PASSWORD:-rootpass} api bundle exec ridgepole -c config/database.yml -E development
@@ -365,5 +365,62 @@ full-stack-check: ## 🔎 フロントエンド・バックエンド総合品質
 		echo "\n\033[1;33m⚠ 合計 $${TOTAL_ISSUES} 件の問題があります\033[0m"; \
 	fi; \
 	rm -f /tmp/full-stack-check-report.env
+
+frontend-deps: ## 📦 フロントエンド依存関係の再インストール
+	@echo "\033[1;36m=== フロントエンド依存関係の再インストール ===\033[0m"
+	@docker compose exec frontend npm install
+	@echo "\033[1;32m✓ 依存関係のインストール完了\033[0m"
+
+frontend-fix: ## 🔧 フロントエンド環境の自動修復
+	@echo "\033[1;36m=== フロントエンド環境修復 ===\033[0m"
+	
+	@echo "\n\033[1;34m>> 依存関係の再インストール中...\033[0m"
+	@make frontend-deps
+	
+	@echo "\n\033[1;34m>> フロントエンドコンテナ再起動中...\033[0m"
+	@docker compose restart frontend
+	@echo "\033[1;32m✓ フロントエンドコンテナを再起動しました\033[0m"
+	
+	@echo "\n\033[1;32m=== フロントエンド環境修復完了 ===\033[0m"
+	@echo "ブラウザで http://localhost:3000 にアクセスして動作確認してください"
+
+frontend-health: ## 🩺 フロントエンド環境の健全性チェック
+	@echo "\033[1;36m=== フロントエンド健全性診断 ===\033[0m"
+	
+	@echo "\n\033[1;34m>> コンテナ起動状態確認...\033[0m"
+	@docker compose ps frontend --format json | grep -q "\"State\":\"running\"" && \
+		echo "\033[1;32m✓ フロントエンドコンテナは起動しています\033[0m" || \
+		echo "\033[1;31m✖ フロントエンドコンテナが停止しています。'make frontend'を実行してください\033[0m"
+	
+	@echo "\n\033[1;34m>> 開発サーバーアクセス確認...\033[0m"
+	@curl -s -o /dev/null -w "%{http_code}" http://localhost:3000 | grep -q "200" && \
+		echo "\033[1;32m✓ 開発サーバーにアクセス可能です\033[0m" || \
+		echo "\033[1;31m✖ 開発サーバーにアクセスできません。'make frontend-fix'を実行してください\033[0m"
+	
+	@echo "\n\033[1;34m>> 主要JSリソース確認...\033[0m"
+	@curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/_next/static/chunks/main.js 2>/dev/null | grep -q "200" && \
+		echo "\033[1;32m✓ メインJSリソースが正常に配信されています\033[0m" || \
+		echo "\033[1;31m✖ メインJSリソースにアクセスできません。'make frontend-fix'を実行してください\033[0m"
+	
+	@echo "\n\033[1;34m>> 設定ファイル確認...\033[0m"
+	@if [ -f frontend/next.config.js ]; then \
+		echo "\033[1;32m✓ Next.js設定ファイルが存在します\033[0m"; \
+	else \
+		echo "\033[1;31m✖ Next.js設定ファイルが見つかりません\033[0m"; \
+	fi
+	
+	@echo "\n\033[1;34m>> 環境変数確認...\033[0m"
+	@if [ -f frontend/.env.local ]; then \
+		if grep -q "NEXT_PUBLIC_API_URL" frontend/.env.local; then \
+			echo "\033[1;32m✓ API URL設定が存在します\033[0m"; \
+		else \
+			echo "\033[1;33m⚠ API URLが設定されていません\033[0m"; \
+		fi \
+	else \
+		echo "\033[1;33m⚠ .env.localファイルが見つかりません\033[0m"; \
+	fi
+	
+	@echo "\n\033[1;32m=== 診断完了 ===\033[0m"
+	@echo "問題が見つかった場合は 'make frontend-fix' を実行してください"
 
 .DEFAULT_GOAL := help

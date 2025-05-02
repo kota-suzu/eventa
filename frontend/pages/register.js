@@ -165,13 +165,13 @@ const Register = () => {
   };
   
   return (
-    <div className={styles.authContainer}>
-      <div className={styles.formContainer}>
-        <h1 className={styles.title}>新規登録</h1>
+    <div className={styles.authContainer || 'auth-container'}>
+      <div className={styles.formContainer || 'form-container'}>
+        <h1 className={styles.title || 'title'}>新規登録</h1>
         
-        {serverError && <div className={styles.error}>{serverError}</div>}
+        {serverError && <div className={styles.error || 'error'}>{serverError}</div>}
         
-        <form onSubmit={handleSubmit} className={styles.form}>
+        <form onSubmit={handleSubmit} className={styles.form || 'form'}>
           <div className={styles.formGroup}>
             <label htmlFor="email">メールアドレス</label>
             <input
@@ -264,18 +264,16 @@ const Register = () => {
           
           <button
             type="submit"
-            className={styles.button}
+            className={styles.submitButton || 'submit-button'}
             disabled={isLoading}
           >
-            {isLoading ? '登録中...' : '登録'}
+            {isLoading ? '処理中...' : '登録する'}
           </button>
           
         </form>
         
-        <div className={styles.links}>
-          <p>
-            すでにアカウントをお持ちですか？ <Link href="/login" className={styles.link}>ログイン</Link>
-          </p>
+        <div className={styles.loginLink || 'login-link'}>
+          すでにアカウントをお持ちの方は <Link href="/login">ログイン</Link>
         </div>
       </div>
     </div>
