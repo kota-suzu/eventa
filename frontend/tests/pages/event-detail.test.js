@@ -48,10 +48,10 @@ const textContentMatcher = (text) => {
 // useStateのモック（一度だけモック化）
 jest.mock('react', () => {
   const originalReact = jest.requireActual('react');
-  
+
   // オリジナルのuseStateを保存
   const originalUseState = originalReact.useState;
-  
+
   // モック用のuseState
   const mockUseState = jest.fn().mockImplementation((initialState) => {
     // isLoadingの場合
@@ -65,7 +65,7 @@ jest.mock('react', () => {
     // その他のケース
     return originalUseState(initialState);
   });
-  
+
   return {
     ...originalReact,
     useState: mockUseState,
@@ -75,8 +75,8 @@ jest.mock('react', () => {
 describe('EventDetail Page', () => {
   beforeEach(() => {
     // useEffectのモック
-    jest.spyOn(React, 'useEffect').mockImplementation(f => f());
-    
+    jest.spyOn(React, 'useEffect').mockImplementation((f) => f());
+
     // コンポーネントのレンダリング
     render(
       <AuthProvider>
@@ -104,12 +104,12 @@ describe('EventDetail Page', () => {
     // 25と50を含むテキストを検索
     const participantsElement = screen.getByText(textContentMatcher('25'));
     expect(participantsElement).toBeInTheDocument();
-    
+
     const capacityElement = screen.getByText(textContentMatcher('50'));
     expect(capacityElement).toBeInTheDocument();
-    
+
     // プログレスバーの存在を確認
     const progressBar = document.querySelector('div[style*="width: 50%"]');
     expect(progressBar).toBeInTheDocument();
   });
-}); 
+});

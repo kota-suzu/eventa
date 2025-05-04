@@ -1,18 +1,6 @@
 require_relative "boot"
 
-require "rails"
-# Pick the frameworks you want:
-require "active_model/railtie"
-require "active_job/railtie"
-require "active_record/railtie"
-require "active_storage/engine"
-require "action_controller/railtie"
-require "action_mailer/railtie"
-require "action_mailbox/engine"
-require "action_text/engine"
-require "action_view/railtie"
-require "action_cable/engine"
-# require "rails/test_unit/railtie"
+require "rails/all"
 
 # Require the gems listed in Gemfile, including any gems
 # you've limited to :test, :development, or :production.
@@ -20,13 +8,16 @@ Bundler.require(*Rails.groups)
 
 module Api
   class Application < Rails::Application
-    # Initialize configuration defaults for originally generated Rails version.
+    # Initialize configuration defaults for original Rails version.
     config.load_defaults 8.0
+
+    # キャッシュフォーマットバージョンを7.1に設定して互換性問題を解決
+    config.active_support.cache_format_version = 7.1
 
     # Please, add to the `ignore` list any other `lib` subdirectories that do
     # not contain `.rb` files, or that should not be reloaded or eager loaded.
     # Common ones are `templates`, `generators`, or `middleware`, for example.
-    config.autoload_lib(ignore: %w[assets tasks])
+    # config.autoload_lib(ignore: %w(assets tasks))
 
     # Configuration for the application, engines, and railties goes here.
     #
@@ -36,9 +27,20 @@ module Api
     # config.time_zone = "Central Time (US & Canada)"
     # config.eager_load_paths << Rails.root.join("extras")
 
+    # デフォルトのロケールを日本語に設定
+    config.i18n.default_locale = :ja
+    config.i18n.available_locales = %i[ja en]
+
+    # タイムゾーンを日本時間に設定
+    config.time_zone = "Tokyo"
+    config.active_record.default_timezone = :local
+
     # Only loads a smaller set of middleware suitable for API only apps.
     # Middleware like session, flash, cookies can be added back manually.
     # Skip views, helpers and assets when generating a new resource.
     config.api_only = true
+
+    # フロントエンドのオリジンを設定（環境変数から取得、デフォルトは開発環境向け）
+    config.frontend_origin = ENV.fetch("FRONTEND_ORIGIN", "http://localhost:3000")
   end
 end

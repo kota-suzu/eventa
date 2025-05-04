@@ -11,6 +11,9 @@ module Api
 
         if @user.save
           token = generate_jwt_token(@user)
+          # Cookie にも保存
+          set_jwt_cookie(token)
+
           render json: {
             user: user_response(@user),
             token: token
@@ -28,6 +31,9 @@ module Api
 
         if @user
           token = generate_jwt_token(@user)
+          # Cookie にも保存
+          set_jwt_cookie(token)
+
           render json: {
             user: user_response(@user),
             token: token
@@ -48,6 +54,16 @@ module Api
       def generate_jwt_token(user)
         # JsonWebTokenサービスを使用
         JsonWebToken.encode({user_id: user.id})
+      end
+
+      def set_jwt_cookie(token)
+        cookies.signed[:jwt] = {
+          value: token,
+          httponly: true,
+          secure: Rails.env.production?,
+          same_site: :lax,
+          expires: 24.hours.from_now
+        }
       end
 
       def user_response(user)

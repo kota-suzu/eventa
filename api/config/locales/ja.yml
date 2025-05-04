@@ -5,6 +5,13 @@ ja:
       missing_token: 'トークンがありません'
       invalid_token: '無効なトークンです'
       user_not_found: 'ユーザーが見つかりません'
+    messages:
+      not_found: "は見つかりませんでした"
+      already_confirmed: "は既に登録済みです"
+      not_locked: "は凍結されていません"
+      not_saved:
+        one: "エラーが発生したため %{resource} は保存されませんでした:"
+        other: "%{count} 件のエラーが発生したため %{resource} は保存されませんでした:"
   auth:
     invalid_credentials: 'メールアドレスまたはパスワードが無効です'
     registration:
@@ -12,21 +19,46 @@ ja:
       error: '登録できませんでした'
   activerecord:
     errors:
-      models:
-        user:
-          attributes:
-            email:
-              blank: 'メールアドレスを入力してください'
-              invalid: 'メールアドレスの形式が正しくありません'
-              taken: 'このメールアドレスは既に使用されています'
-            name:
-              blank: '氏名を入力してください'
-              too_long: '氏名は%{count}文字以内で入力してください'
-            password:
-              blank: 'パスワードを入力してください'
-              too_short: 'パスワードは%{count}文字以上で入力してください'
-              too_long: 'パスワードは%{count}文字以内で入力してください'
-            password_confirmation:
-              confirmation: 'パスワードとパスワード確認が一致しません'
-            role:
-              inclusion: '無効なユーザータイプが指定されています'
+      messages:
+        record_invalid: "バリデーションに失敗しました: %{errors}"
+        restrict_dependent_destroy:
+          has_one: "%{record}が存在しているので削除できません"
+          has_many: "%{record}が存在しているので削除できません"
+        greater_than_or_equal_to: "は%{count}以上の値にしてください"
+        blank: "を入力してください"
+        taken: "はすでに存在します"
+        too_short: "は%{count}文字以上で入力してください"
+        invalid: "は不正な値です"
+    models:
+      user: ユーザー
+      event: イベント
+      ticket: チケット
+      reservation: 予約
+    attributes:
+      user:
+        name: 名前
+        email: メールアドレス
+        password: パスワード
+        password_confirmation: パスワード（確認）
+        bio: 自己紹介
+        role: 権限
+      event:
+        title: タイトル
+        description: 説明
+        start_at: 開始日時
+        end_at: 終了日時
+        venue: 会場
+        capacity: 定員
+        is_public: 公開設定
+      ticket:
+        title: タイトル
+        description: 説明
+        price: 価格
+        quantity: 総数量
+        available_quantity: 残り数量
+        event_id: イベントID
+      reservation:
+        quantity: 予約数
+        total_price: 合計金額
+        status: ステータス
+        payment_method: 支払い方法

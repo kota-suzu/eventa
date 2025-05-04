@@ -39,7 +39,8 @@
   gap: 1rem;
 }
 
-.createButton, .profileButton {
+.createButton,
+.profileButton {
   display: inline-block;
   padding: 0.5rem 1rem;
   font-weight: 500;
@@ -133,7 +134,8 @@
   gap: 0.5rem;
 }
 
-.viewLink, .editLink {
+.viewLink,
+.editLink {
   padding: 0.25rem 0.5rem;
   border-radius: 4px;
   font-size: 0.875rem;
@@ -218,4 +220,4 @@
   border: 1px solid #ffccc7;
   border-radius: 4px;
   color: #ff4d4f;
-} 
+}

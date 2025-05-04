@@ -5,7 +5,7 @@ import Cookies from 'js-cookie';
 jest.mock('js-cookie', () => ({
   get: jest.fn(),
   set: jest.fn(),
-  remove: jest.fn()
+  remove: jest.fn(),
 }));
 
 describe('認証ユーティリティ', () => {
@@ -109,7 +109,11 @@ describe('認証ユーティリティ', () => {
       setUserData(userData);
 
       // 検証 - ここではオプションの詳細は期待値に含めないようにする
-      expect(Cookies.set).toHaveBeenCalledWith('user', JSON.stringify(userData), expect.any(Object));
+      expect(Cookies.set).toHaveBeenCalledWith(
+        'user',
+        JSON.stringify(userData),
+        expect.any(Object)
+      );
     });
   });
-}); 
+});

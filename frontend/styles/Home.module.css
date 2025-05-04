@@ -109,7 +109,9 @@
   font-weight: 600;
   text-decoration: none;
   border: 1px solid #4a6cf7;
-  transition: background-color 0.2s, color 0.2s;
+  transition:
+    background-color 0.2s,
+    color 0.2s;
 }
 
 .secondaryButton:hover {
@@ -147,7 +149,9 @@
   background-color: #f8f9fa;
   border-radius: 0.5rem;
   padding: 2rem 1.5rem;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
 }
 
 .featureCard:hover {
@@ -245,7 +249,9 @@
   font-weight: 600;
   text-decoration: none;
   border: 1px solid #4a6cf7;
-  transition: background-color 0.2s, color 0.2s;
+  transition:
+    background-color 0.2s,
+    color 0.2s;
 }
 
 .viewAllLink:hover {
@@ -313,4 +319,4 @@
 .copyright {
   font-size: 0.875rem;
   color: #adb5bd;
-} 
+}

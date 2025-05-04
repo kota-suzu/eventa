@@ -9,7 +9,7 @@ export default function Home() {
   const [events, setEvents] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const { isAuthenticated } = useAuth();
-  
+
   // 新着イベント取得（例）
   useEffect(() => {
     const fetchEvents = async () => {
@@ -18,13 +18,13 @@ export default function Home() {
         // 本番ではAPIから取得
         // const response = await fetch('/api/featured-events');
         // const data = await response.json();
-        
+
         // ダミーデータ
         setTimeout(() => {
           setEvents([
             { id: 1, title: '新製品発表会', imageUrl: '/images/event1.jpg' },
             { id: 2, title: 'テックカンファレンス', imageUrl: '/images/event2.jpg' },
-            { id: 3, title: 'デザインワークショップ', imageUrl: '/images/event3.jpg' }
+            { id: 3, title: 'デザインワークショップ', imageUrl: '/images/event3.jpg' },
           ]);
           setIsLoading(false);
         }, 500);
@@ -33,7 +33,7 @@ export default function Home() {
         setIsLoading(false);
       }
     };
-    
+
     fetchEvents();
   }, []);
 
@@ -75,7 +75,7 @@ export default function Home() {
                 </p>
               </div>
             )}
-            
+
             {isAuthenticated && (
               <div className={styles.ctaContainer}>
                 <div className={styles.ctaButtons}>
@@ -89,12 +89,12 @@ export default function Home() {
               </div>
             )}
           </div>
-          
+
           <div className={styles.heroImage}>
             <img src="/images/hero-image.svg" alt="イベント管理" />
           </div>
         </section>
-        
+
         {/* 特徴セクション */}
         <section className={styles.features}>
           <h2 className={styles.sectionTitle}>Eventaの特徴</h2>
@@ -106,7 +106,7 @@ export default function Home() {
                 新しいイベントを数分で作成して、参加者を招待しましょう。
               </p>
             </div>
-            
+
             <div className={styles.featureCard}>
               <div className={styles.featureIcon}>🔍</div>
               <h3 className={styles.featureTitle}>イベントを探す</h3>
@@ -114,7 +114,7 @@ export default function Home() {
                 あなたの興味に合わせたイベントを見つけて参加しましょう。
               </p>
             </div>
-            
+
             <div className={styles.featureCard}>
               <div className={styles.featureIcon}>📊</div>
               <h3 className={styles.featureTitle}>管理を簡単に</h3>
@@ -122,7 +122,7 @@ export default function Home() {
                 参加者の管理、出欠確認、リマインダー送信が簡単にできます。
               </p>
             </div>
-            
+
             <div className={styles.featureCard}>
               <div className={styles.featureIcon}>📈</div>
               <h3 className={styles.featureTitle}>分析と改善</h3>
@@ -132,7 +132,7 @@ export default function Home() {
             </div>
           </div>
         </section>
-        
+
         {/* 今後のイベント */}
         <section className={styles.upcomingEvents}>
           <h2 className={styles.sectionTitle}>今後のイベント</h2>
@@ -155,7 +155,7 @@ export default function Home() {
               ))}
             </div>
           )}
-          
+
           <div className={styles.viewAllContainer}>
             <Link href="/events" className={styles.viewAllLink}>
               すべてのイベントを見る
@@ -166,14 +166,20 @@ export default function Home() {
 
       <footer className={styles.footer}>
         <div className={styles.footerContent}>
-          <div className={styles.footerLogo}>
-            Eventa
-          </div>
+          <div className={styles.footerLogo}>Eventa</div>
           <div className={styles.footerLinks}>
-            <Link href="/about" className={styles.footerLink}>概要</Link>
-            <Link href="/terms" className={styles.footerLink}>利用規約</Link>
-            <Link href="/privacy" className={styles.footerLink}>プライバシーポリシー</Link>
-            <Link href="/contact" className={styles.footerLink}>お問い合わせ</Link>
+            <Link href="/about" className={styles.footerLink}>
+              概要
+            </Link>
+            <Link href="/terms" className={styles.footerLink}>
+              利用規約
+            </Link>
+            <Link href="/privacy" className={styles.footerLink}>
+              プライバシーポリシー
+            </Link>
+            <Link href="/contact" className={styles.footerLink}>
+              お問い合わせ
+            </Link>
           </div>
           <div className={styles.copyright}>
             &copy; {new Date().getFullYear()} Eventa. All rights reserved.
@@ -182,4 +188,4 @@ export default function Home() {
       </footer>
     </div>
   );
-} 
+}

@@ -1,7 +1,7 @@
-import Link from 'next/link'
-import { useAuth } from '../contexts/AuthContext'
-import styles from './Header.module.css'
-import { useState, useEffect, useRef } from 'react'
+import Link from 'next/link';
+import { useAuth } from '../contexts/AuthContext';
+import styles from './Header.module.css';
+import { useState, useEffect, useRef } from 'react';
 
 export default function Header() {
   const { isAuthenticated, user, logout, loading } = useAuth();
@@ -33,15 +33,15 @@ export default function Header() {
     e.preventDefault();
     // ダブルクリック防止
     if (logoutInProgress) return;
-    
+
     try {
       setLogoutInProgress(true);
       console.log('Logout button clicked');
-      
+
       // ログアウト処理を実行
       const result = logout();
       console.log('Logout result:', result);
-      
+
       // メニューを閉じる
       setIsMenuOpen(false);
     } catch (error) {
@@ -61,7 +61,7 @@ export default function Header() {
         <Link href="/" className={styles.logo}>
           <span className={styles.highlight}>Eventa</span>
         </Link>
-        
+
         <nav className={styles.nav}>
           <Link href="/events" className={styles.navLink}>
             イベント一覧
@@ -75,23 +75,17 @@ export default function Header() {
             概要
           </Link>
         </nav>
-        
+
         <div className={styles.auth}>
           {!loading && (
             <>
               {isAuthenticated ? (
                 <div className={styles.userMenu} ref={menuRef}>
-                  <button 
-                    onClick={toggleMenu} 
-                    className={styles.userButton}
-                    type="button"
-                  >
-                    <span className={styles.username}>
-                      {user?.attributes?.name}
-                    </span>
+                  <button onClick={toggleMenu} className={styles.userButton} type="button">
+                    <span className={styles.username}>{user?.attributes?.name}</span>
                     <span className={styles.menuArrow}>▼</span>
                   </button>
-                  
+
                   {isMenuOpen && (
                     <div className={styles.dropdown}>
                       <Link href="/dashboard" className={styles.dropdownItem}>
@@ -100,8 +94,8 @@ export default function Header() {
                       <Link href="/profile" className={styles.dropdownItem}>
                         プロフィール編集
                       </Link>
-                      <button 
-                        onClick={handleLogout} 
+                      <button
+                        onClick={handleLogout}
                         className={styles.dropdownItem}
                         type="button"
                         disabled={logoutInProgress}
@@ -126,5 +120,5 @@ export default function Header() {
         </div>
       </div>
     </header>
-  )
+  );
 }

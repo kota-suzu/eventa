@@ -17,9 +17,27 @@ const Events = () => {
     // APIからイベントを取得する代わりに、ダミーデータをセット
     setTimeout(() => {
       setEvents([
-        { id: 1, title: 'テクノロジーカンファレンス', date: '2025-06-15', type: 'ビジネス', description: '最新技術動向について学ぶ1日イベント' },
-        { id: 2, title: '音楽フェスティバル', date: '2025-07-20', type: 'エンターテイメント', description: '地元アーティストによる野外コンサート' },
-        { id: 3, title: 'チャリティマラソン', date: '2025-08-05', type: 'スポーツ', description: '環境保護のための募金イベント' }
+        {
+          id: 1,
+          title: 'テクノロジーカンファレンス',
+          date: '2025-06-15',
+          type: 'ビジネス',
+          description: '最新技術動向について学ぶ1日イベント',
+        },
+        {
+          id: 2,
+          title: '音楽フェスティバル',
+          date: '2025-07-20',
+          type: 'エンターテイメント',
+          description: '地元アーティストによる野外コンサート',
+        },
+        {
+          id: 3,
+          title: 'チャリティマラソン',
+          date: '2025-08-05',
+          type: 'スポーツ',
+          description: '環境保護のための募金イベント',
+        },
       ]);
       setIsLoading(false);
     }, 1000);
@@ -45,7 +63,10 @@ const Events = () => {
     <>
       <Head>
         <title>イベント一覧 | Eventa</title>
-        <meta name="description" content="Eventaのイベント一覧 - 開催予定のイベントをチェックしましょう" />
+        <meta
+          name="description"
+          content="Eventaのイベント一覧 - 開催予定のイベントをチェックしましょう"
+        />
       </Head>
 
       <Header />
@@ -62,7 +83,7 @@ const Events = () => {
           </div>
         ) : events.length > 0 ? (
           <div className={styles.eventsGrid}>
-            {events.map(event => (
+            {events.map((event) => (
               <div key={event.id} className={styles.eventCard} data-testid="event-card">
                 <div className={styles.eventImage}>
                   <img src={`/images/event-default.jpg`} alt={event.title} />
@@ -97,4 +118,4 @@ const Events = () => {
   );
 };
 
-export default Events; 
+export default Events;

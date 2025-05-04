@@ -18,6 +18,19 @@ Rails.application.routes.draw do
         post :register
         post :login
       end
+
+      # チケット予約関連
+      resources :ticket_reservations, only: [:create]
+
+      # イベント関連
+      resources :events, only: [:index, :show] do
+        resources :tickets, only: [:index], controller: "event_tickets"
+      end
+
+      # ユーザー関連
+      namespace :user do
+        resources :reservations, only: [:index]
+      end
     end
   end
 

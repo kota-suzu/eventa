@@ -1,10 +1,47 @@
 /**
  * API通信のためのユーティリティ関数
  */
-import { getAuthToken } from './auth';
+import axios from 'axios';
+import Router from 'next/router';
+import { logout } from './auth';
 
 // API のベース URL を環境変数から取得
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+
+// APIクライアントの作成
+const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  withCredentials: true, // クッキーを含める設定
+});
+
+// リクエスト時に認証トークンを設定
+apiClient.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('auth_token');
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// 401エラー時にはログアウト処理
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      logout();
+      Router.push('/login');
+    }
+    return Promise.reject(error);
+  }
+);
 
 /**
  * APIリクエストを行う汎用関数
@@ -14,7 +51,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
  */
 export async function fetchApi(endpoint, options = {}) {
   const url = `${API_BASE_URL}${endpoint}`;
-  
+
   // デフォルトのヘッダーを設定
   const headers = {
     'Content-Type': 'application/json',
@@ -22,7 +59,7 @@ export async function fetchApi(endpoint, options = {}) {
   };
 
   // 認証トークンがある場合は追加
-  const token = getAuthToken();
+  const token = localStorage.getItem('auth_token');
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
@@ -120,4 +157,40 @@ export function del(endpoint, options = {}) {
     method: 'DELETE',
     ...options,
   });
-} 
+}
+
+// チケット予約作成API
+export const createReservation = async (reservationData) => {
+  const response = await apiClient.post('/ticket_reservations', reservationData);
+  return response.data;
+};
+
+// イベントのチケット一覧取得API
+export const getEventTickets = async (eventId) => {
+  const response = await apiClient.get(`/events/${eventId}/tickets`);
+  return response.data;
+};
+
+// ユーザーの予約一覧取得API
+export const getUserReservations = async () => {
+  const response = await apiClient.get('/user/reservations');
+  return response.data;
+};
+
+// ログインAPI
+export const login = async (credentials) => {
+  const response = await apiClient.post('/login', credentials);
+  const { token, user } = response.data;
+
+  // トークンをlocalStorageに保存
+  localStorage.setItem('auth_token', token);
+
+  return user;
+};
+
+// ログアウト
+export const logout = () => {
+  localStorage.removeItem('auth_token');
+};
+
+export default apiClient;

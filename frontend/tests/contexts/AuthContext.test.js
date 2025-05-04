@@ -6,20 +6,23 @@ import { act } from 'react-dom/test-utils';
 // AuthProviderをモック
 jest.mock('../../utils/auth', () => ({
   api: {
-    post: jest.fn().mockResolvedValue({ 
-      status: 200, 
-      data: { user: { id: 1, name: 'テストユーザー', email: 'test@example.com' }, token: 'dummy-token' } 
+    post: jest.fn().mockResolvedValue({
+      status: 200,
+      data: {
+        user: { id: 1, name: 'テストユーザー', email: 'test@example.com' },
+        token: 'dummy-token',
+      },
     }),
-    get: jest.fn().mockResolvedValue({ 
-      status: 200, 
-      data: { user: { id: 1, name: 'テストユーザー', email: 'test@example.com' } } 
-    })
+    get: jest.fn().mockResolvedValue({
+      status: 200,
+      data: { user: { id: 1, name: 'テストユーザー', email: 'test@example.com' } },
+    }),
   },
   getAuthToken: jest.fn().mockReturnValue(null),
   setAuthToken: jest.fn(),
   clearAuth: jest.fn(),
   getUserData: jest.fn().mockReturnValue(null),
-  setUserData: jest.fn()
+  setUserData: jest.fn(),
 }));
 
 // テスト用コンポーネント
@@ -28,7 +31,9 @@ const TestComponent = () => {
   return (
     <div>
       <div data-testid="loading">{loading ? 'Loading...' : 'Not loading'}</div>
-      <div data-testid="authenticated">{isAuthenticated() ? 'Authenticated' : 'Not authenticated'}</div>
+      <div data-testid="authenticated">
+        {isAuthenticated() ? 'Authenticated' : 'Not authenticated'}
+      </div>
       <div data-testid="user-name">{user ? user.name : 'No user'}</div>
     </div>
   );
@@ -54,4 +59,4 @@ describe('AuthContext', () => {
 
   // 他のテストケースも追加可能
   // 例: ログイン、ログアウト、登録など
-}); 
+});

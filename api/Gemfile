@@ -48,6 +48,14 @@ gem "sidekiq"
 # データベーススキーマ管理ツール
 gem "ridgepole", "~> 3.0.1"
 
+# API関連
+gem "jsonapi-serializer" # JSONシリアライザー (fast_jsonapiの後継)
+gem "kaminari"     # ページネーション
+gem "rack-attack"  # レート制限
+
+# 決済処理
+gem "stripe"
+
 group :development, :test do
   # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem
   gem "debug", platforms: %i[mri windows], require: "debug/prelude"

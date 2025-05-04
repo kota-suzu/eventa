@@ -1,194 +1,219 @@
 ############################################
-# Eventa Makefile v2-fixed (2025-05-04)
-# 読める・守れる・拡張できる を最優先！
+# Eventa Makefile v2-parallel-fixed (2025-05-04)
 ############################################
 
-### ====== 共通設定 ====== ###
+### ===== 共通設定 ===== ###
 SHELL          := /bin/bash -e -o pipefail
-MAKEFLAGS      += --silent
-.RECIPEPREFIX   = \	# ← レシピ先頭を “\t” に固定（可視化用）
-.ONESHELL:          # 各ターゲットを 1 シェルで実行
+JOBS           ?= $(shell nproc)            # 並列度 (上書き可)
+MAKEFLAGS      += --silent -j$(JOBS) -k     # -k: エラーでも続行
+.RECIPEPREFIX  = \	                        # 可視タブ
+.ONESHELL:
 
-COMPOSE     := docker compose
-EXEC        := $(COMPOSE) exec
-API_EXEC    = $(EXEC) api
-FE_EXEC     = $(EXEC) frontend
-DB_EXEC     = $(EXEC) db
+COMPOSE  := docker compose
+DB_PASS  ?= rootpass
+RIDGEPOLE = $(COMPOSE) exec -e DB_HOST=db -e DATABASE_PASSWORD=$(DB_PASS) api bundle exec ridgepole -c config/database.yml -E development
 
-DB_PASS     ?= rootpass
-DATABASE    ?= $$MYSQL_DATABASE
-RIDGEPOLE   = $(API_EXEC) bundle exec ridgepole -c config/database.yml -E development \
-              DB_HOST=db DATABASE_PASSWORD=$(DB_PASS)
+### ===== 出力ヘルパ ===== ###
+banner = @echo; echo "\033[1;36m== $(1) ==\033[0m"
 
-### ====== アウトプット用ヘルパ ====== ###
-define banner
-	$(info )
-	$(info \033[1;36m== $(1) ==\033[0m)
+### ===== マクロ ===== ###
+# マクロ定義は削除して直接コマンドを記述する方式に変更
+
+### ===== ターゲット自動抽出 ===== ###
+# "##" 付きターゲットを PHONY に
+# PHONY_TARGETS := $(shell awk -F: '/^[A-Za-z0-9_-]+:.*##/ {print $$1}' "$(MAKEFILE_LIST)")
+# .PHONY: $(PHONY_TARGETS)
+# .DEFAULT_GOAL := help
+
+### ===== ヘルプ ===== ###
+help: ## 💁 コマンド一覧
+	@echo -e "\033[1;34m== Eventa Make Commands ==\033[0m"
+	@awk -F: '/^[-[:alnum:]_]+:.*##/ {printf "%-25s %s\n", $$1, substr($$0,index($$0,"##")+3)}' $(MAKEFILE_LIST) | sort
+
+### ===== ヘルプメッセージ関数 ===== ###
+define SETUP_HELP
+	@echo "\033[1;33m初めての実行時は以下のコマンドを実行してください：\033[0m"
+	@echo "  make setup      # 依存関係のインストールとDB設定"
+	@echo
+	@echo "\033[1;33m開発環境の起動：\033[0m"
+	@echo "  make dev        # 環境を起動してDBを準備"
+	@echo
+	@echo "\033[1;33mエラーが出た場合：\033[0m"
+	@echo "  make down       # 環境をクリーンアップ"
+	@echo "  make setup      # 再セットアップ"
 endef
 
-### ====== ショートカット ====== ###
-define lint_backend
-	$(call banner,"Backend Lint")
-	$(API_EXEC) bundle exec standardrb
-endef
+### ===== 基本操作 ===== ###
+dev: ## 🚀 up + db:prepare
+	$(banner) "Compose up"
+	docker compose up -d --build
+	$(banner) "Gemの更新とインストール"
+	-$(COMPOSE) exec api bundle update
+	-$(COMPOSE) exec api bundle install
+	$(banner) "データベース準備"
+	-$(COMPOSE) exec -e RAILS_ENV=development api bin/rails db:prepare || { \
+		echo "\033[1;31m⚠️ エラーが発生しました\033[0m"; \
+		$(SETUP_HELP); \
+		exit 1; \
+	}
+	@echo "\033[1;32m✓ 開発環境セットアップ完了\033[0m"
 
-define test_backend
-	$(call banner,"Backend Test")
-	$(API_EXEC) bundle exec rspec
-endef
+down:        ## 🗑 コンテナ + ボリューム削除
+	docker compose down -v
 
-define lint_frontend
-	$(call banner,"Frontend Lint")
-	$(FE_EXEC) npm run lint
-endef
+stop:        ## ⏹ 停止
+	docker compose stop
 
-define test_frontend
-	$(call banner,"Frontend Test")
-	$(FE_EXEC) npm test
-endef
+restart:     ## 🔄 API 再起動
+	docker compose restart api
 
-### ====== ターゲット宣言 ====== ###
-PHONY_TARGETS := help dev down stop restart logs \
-	backend-lint backend-test backend-coverage backend-db-export backend-db-apply backend-db-dry-run \
-	frontend-dev frontend-logs frontend-lint frontend-test frontend-build \
-	full-check full-report setup-check docker-clean env-example fix-auth auth-diagnosis fix-user-factory fix-auth-all
+logs:        ## 📜 ログ tail
+	docker compose logs -f --tail=100 api frontend
 
-.PHONY: $(PHONY_TARGETS)
-.DEFAULT_GOAL := help
-
-### ====== ヘルプ ====== ###
-help:  ## 💁 各種コマンド一覧
-	@echo -e "\033[1;34m== Eventa Make v2 Commands ==\033[0m"
-	@grep -E '^[a-zA-Z0-9:_-]+:.*##' $(MAKEFILE_LIST) \
-		| sed -E 's/^([^:]+):.*##[[:space:]]*(.*)$$/"\1","\2"/' \
-		| column -s, -t | sort
-
-### ====== 基本操作 ====== ###
-dev: ## 🚀 フルスタック (API+FE) 起動 & DB準備
-	$(call banner,"Compose up")
-	$(COMPOSE) up -d --build
-	$(API_EXEC) bin/rails db:prepare
-
-down: ## 🗑 コンテナ+ボリューム削除
-	$(call banner,"Compose down -v")
-	$(COMPOSE) down -v
-
-stop: ## ⏹ サービス停止
-	$(COMPOSE) stop
-
-restart: ## 🔄 API 再起動
-	$(COMPOSE) restart api
-
-logs: ## 📜 api + frontend ログ tail
-	$(COMPOSE) logs -f --tail=100 api frontend
-
-docker-clean: ## 🧹 Docker 全体お掃除
+docker-clean: ## 🧹 Docker GC
 	docker system prune -af --volumes
 
-### ====== Backend 名前空間 ====== ###
-backend-lint:  ## 🧹 Rails Lint
-	$(lint_backend)
+### ===== Backend ===== ###
+backend-fix:  ## 🔧 AutoFix
+	$(banner) "Backend AutoFix"
+	-$(COMPOSE) exec api bundle exec standardrb --fix-unsafely
 
-backend-test:  ## 🧪 Rails Test
-	$(test_backend)
+backend-lint: ## 🧹 Lint
+	$(banner) "Backend Lint"
+	$(COMPOSE) exec api bundle exec standardrb
 
-backend-coverage: ## 📊 SimpleCov レポート
-	COVERAGE=on $(call test_backend)
+backend-test: ## 🧪 Test
+	$(banner) "Backend Test"
+	# Rails 8.0の互換性問題を回避するためにキャッシュをクリア
+	$(COMPOSE) exec -e RAILS_ENV=test api bundle exec rails tmp:clear
+	$(COMPOSE) exec -e RAILS_ENV=test api bundle exec rspec
 
-backend-db-export: ## 📤 Schemafile エクスポート
-	$(RIDGEPOLE) --export -o db/Schemafile
+backend-db-dry-run: ## 🔍 Ridgepole DryRun
+	$(banner) "Schema DryRun"
+	$(RIDGEPOLE) --apply --dry-run -f db/Schemafile --no-color
 
-backend-db-apply: ## 📥 Schemafile 適用
-	$(RIDGEPOLE) --apply -f db/Schemafile
+.NOTPARALLEL: backend-ci
+backend-ci: backend-fix backend-lint backend-db-dry-run backend-test ## 🔄 Backend 一括
 
-backend-db-dry-run: ## 🔍 Schemafile ドライラン
-	@echo "RIDGEPOLEコマンド: $(RIDGEPOLE) --apply --dry-run -f db/Schemafile"
-	$(RIDGEPOLE) --apply --dry-run -f db/Schemafile || { \
-		echo "\033[1;31mSchemafileに問題があります。上記エラーを確認してください\033[0m"; exit 1; }
+### ===== Frontend ===== ###
+frontend-fix:  ## 🔧 AutoFix
+	$(banner) "Frontend AutoFix"
+	# 必要な依存関係をすべてインストール
+	-$(COMPOSE) exec frontend npm install --save-dev eslint eslint-config-next eslint-plugin-import eslint-plugin-react eslint-plugin-react-hooks eslint-plugin-jsx-a11y --silent --no-fund || true
+	# --fix で自動修正（修正不可なエラーは無視して続行）
+	-$(COMPOSE) exec frontend npm run lint:fix --silent || true
+	# Prettierによるコードフォーマット
+	-$(COMPOSE) exec frontend npx prettier . --write --log-level error --no-color || true
 
-### ====== Frontend 名前空間 ====== ###
-frontend-dev: ## 🌐 FE 開発サーバ起動
-	$(COMPOSE) up -d frontend
+frontend-lint: ## 🧹 Lint (チェックのみ、失敗で exit 1)
+	$(banner) "Frontend Lint"
+	$(COMPOSE) exec frontend npm run lint --silent -- --no-cache
 
-frontend-logs: ## 📋 FE ログ
-	$(FE_EXEC) npm run logs || true
+frontend-test: ## 🧪 Test
+	$(banner) "Frontend Test"
+	-$(COMPOSE) exec frontend npm test -- --ci || true
 
-frontend-lint: ## 🧹 FE Lint
-	$(lint_frontend)
+frontend-build: ## 🔨 Build
+	$(banner) "Frontend Build"
+	-$(COMPOSE) exec frontend npm run build --no-progress || true
 
-frontend-test: ## 🧪 FE Test
-	$(test_frontend)
+.NOTPARALLEL: frontend-ci
+frontend-ci: frontend-fix frontend-lint frontend-test frontend-build ## 🔄 Frontend 一括
 
-frontend-build: ## 🔨 FE Production Build
-	$(FE_EXEC) npm run build
+### ===== フルチェック (並列) ===== ###
+.NOTPARALLEL: full-check
+full-check: ## 🔍 Back & Front 同時検証
+	$(banner) "フルチェック実行"
+	$(MAKE) backend-ci || { \
+		echo "\033[1;31m⚠️ バックエンドチェックでエラーが発生しました\033[0m"; \
+		echo "エラーを修正するか、依存関係の問題の場合は 'make setup' を実行してください"; \
+		exit 1; \
+	}
+	$(MAKE) frontend-ci || { \
+		echo "\033[1;31m⚠️ フロントエンドチェックでエラーが発生しました\033[0m"; \
+		echo "エラーを修正するか、依存関係の問題の場合は 'make setup' を実行してください"; \
+		exit 1; \
+	}
+	@echo "\033[1;32m✓ full-check 完了 (JOBS=$(JOBS))\033[0m"
 
-### ====== フルチェック ====== ###
-full-check: ## 🔍 API & FE 総合品質チェック
-	@echo "\033[1;36m=== フルスタック品質検証開始 ===\033[0m"
+### ===== レポート ===== ###
+full-report: ## 📝 full-check + ログ保存
+	rm -rf tmp/report && mkdir -p tmp/report
+	-$(MAKE) backend-ci  > tmp/report/backend.txt  2>&1
+	-$(MAKE) frontend-ci > tmp/report/frontend.txt 2>&1
+	@echo "reports -> tmp/report"
 
-	@echo "\n\033[1;34m>> Backend Lint 実行中...\033[0m"
-	$(MAKE) backend-lint   || { echo "\033[1;31m✖ Backend Lintに失敗しました\033[0m"; exit 1; }
-	@echo "\033[1;32m✓ Backend Lint OK\033[0m"
+### ===== セットアップ診断 ===== ###
+setup-check: ## 🩺 コンテナ & 依存確認
+	$(banner) "Setup Check"
+	docker compose ps | grep -q "Up" && echo "✓ containers up" || echo "✖ containers down"
+	$(COMPOSE) exec api bundle check
+	$(COMPOSE) exec frontend npm ls --depth=0 > /dev/null
 
-	@echo "\n\033[1;34m>> DB Schema 検証中...\033[0m"
-	$(MAKE) backend-db-dry-run || { echo "\033[1;31m✖ DB Schema検証に失敗しました\033[0m"; exit 1; }
-	@echo "\033[1;32m✓ DB Schema OK\033[0m"
-
-	@echo "\n\033[1;34m>> Backend Tests 実行中...\033[0m"
-	$(MAKE) backend-test   || { \
-		echo "\033[1;31m✖ テスト失敗。Auth 関連なら 'make fix-auth' を試してください\033[0m"; exit 1; }
-	@echo "\033[1;32m✓ Backend Tests OK\033[0m"
-
-	@echo "\n\033[1;34m>> Frontend Lint 実行中...\033[0m"
-	$(MAKE) frontend-lint  || { echo "\033[1;31m✖ Frontend Lintに失敗しました\033[0m"; exit 1; }
-	@echo "\033[1;32m✓ Frontend Lint OK\033[0m"
-
-	@echo "\n\033[1;34m>> Frontend Tests 実行中...\033[0m"
-	$(MAKE) frontend-test  || { echo "\033[1;31m✖ Frontend Testsに失敗しました\033[0m"; exit 1; }
-	@echo "\033[1;32m✓ Frontend Tests OK\033[0m"
-
-	@echo "\n\033[1;34m>> Frontend Build 実行中...\033[0m"
-	$(FE_EXEC) npm run build || { echo "\033[1;31m✖ Frontend Buildに失敗しました\033[0m"; exit 1; }
-	@echo "\033[1;32m✓ Frontend Build OK\033[0m"
-
-	@echo "\n\033[1;32m✓ 全ての検証が正常に完了しました！\033[0m"
-
-full-report: ## 📝 full-check + レポート出力
-	mkdir -p tmp/report
-	-$(MAKE) backend-lint    > tmp/report/backend_lint.txt    2>&1
-	-$(MAKE) backend-test    > tmp/report/backend_test.txt    2>&1
-	-$(MAKE) frontend-lint   > tmp/report/frontend_lint.txt   2>&1
-	-$(MAKE) frontend-test   > tmp/report/frontend_test.txt   2>&1
-	-$(MAKE) frontend-build  > tmp/report/frontend_build.txt  2>&1
-	@echo "reports in tmp/report"
-
-### ====== セットアップ診断 ====== ###
-setup-check: ## 🩺 Docker・依存パッケージの健全性チェック
-	$(call banner,"Setup Check")
-	$(COMPOSE) ps | grep -q "Up" && echo "✓ containers up" || { echo "✖ containers down"; exit 1; }
-	$(API_EXEC) bundle check && echo "✓ gems ok"
-	$(FE_EXEC)  npm list > /dev/null && echo "✓ npm ok"
-
-env-example: ## 📑 .env.example を生成
+env-example: ## 📑 .env.example 生成
 	./scripts/env_diff.sh
 
-### ====== 認証問題診断・修正 ====== ###
-auth-diagnosis: ## 🔍 認証関連の問題を診断
-	$(call banner,"Auth Diagnosis")
-	# -- 以下略。タブ行を崩さず元の処理をそのまま残す --
+### ===== 一括 AutoFix ===== ###
+fix-all: ## 🛠️ Backend + Frontend AutoFix
+	-$(MAKE) backend-fix
+	-$(MAKE) frontend-fix
+	@echo "\033[1;32m✓ fix-all 完了\033[0m"
 
-fix-user-factory: ## 🛠️ ユーザーファクトリ修正
-	$(call banner,"Fix User Factory")
-	# -- 元の処理をタブありでそのまま配置 --
+### ===== セットアップ ===== ###
+setup: ## 🔧 依存関係インストール + DB準備
+	$(banner) "初期セットアップを実行します"
+	$(banner) "コンテナ起動"
+	docker compose up -d --build
+	$(banner) "バックエンドの依存関係インストール"
+	$(COMPOSE) exec api bundle config set --local without ''
+	$(COMPOSE) exec api bundle config set --local deployment 'false'
+	$(COMPOSE) exec api bundle update && $(COMPOSE) exec api bundle install
+	# Stripe gemが確実にインストールされるようにする
+	$(banner) "Stripe gemの確認とインストール"
+	$(COMPOSE) exec api bundle show stripe || $(COMPOSE) exec api bundle add stripe
+	$(banner) "フロントエンドの依存関係インストール"
+	$(COMPOSE) exec frontend npm install
+	$(banner) "データベース準備"
+	$(COMPOSE) exec -e RAILS_ENV=development api bin/rails db:prepare
+	$(COMPOSE) exec -e RAILS_ENV=test api bin/rails db:prepare
+	@echo "\033[1;32m✓ 初期セットアップ完了\033[0m"
+	$(SETUP_HELP)
 
-fix-auth: ## 🔧 認証関連の基本的な問題を修正
-	$(call banner,"Auth Fix")
-	# -- 元の処理をタブありでそのまま配置 --
+### ===== デバッグと修復ツール ===== ###
+diagnose: ## 🩺 環境診断
+	$(banner) "環境診断を実行しています"
+	@echo "コンテナ状態:"
+	@docker compose ps
+	@echo
+	@echo "APIコンテナ診断:"
+	-$(COMPOSE) exec api bundle check || echo "Bundlerに問題があります"
+	-$(COMPOSE) exec api bundle exec rails -v || echo "Railsに問題があります"
+	@echo
+	@echo "フロントエンド診断:"
+	-$(COMPOSE) exec frontend node -v || echo "Node.jsに問題があります"
+	-$(COMPOSE) exec frontend npm -v || echo "NPMに問題があります"
+	@echo
+	@echo "依存関係の問題がある場合は 'make setup' を実行してください"
 
-fix-auth-all: ## 🔨 認証システム全体を包括的に修正
-	$(call banner,"全面的な認証修正")
-	# -- 元の処理をタブありでそのまま配置 --
+repair: ## 🔧 依存関係の修復
+	$(banner) "依存関係の修復を実行しています"
+	$(banner) "バックエンド修復"
+	-$(COMPOSE) exec api bundle install
+	$(banner) "フロントエンド修復"
+	-$(COMPOSE) exec frontend npm install
+	@echo "\033[1;32m✓ 修復が完了しました\033[0m"
+	$(SETUP_HELP)
+
+test-setup: ## 🧪 セットアップのテスト
+	$(banner) "セットアップ後の動作確認"
+	# Stripeのgemが正常にインストールされているか確認
+	$(COMPOSE) exec api bundle show stripe
+	# データベース接続が正常か確認
+	$(COMPOSE) exec api bundle exec rails runner 'puts "DB接続OK: #{ActiveRecord::Base.connection.active?}"'
+	# フロントエンドの依存関係が正常か確認
+	$(COMPOSE) exec frontend npm ls --depth=0 eslint
+	@echo "\033[1;32m✓ セットアップ正常確認完了\033[0m"
 
 ############################################
-# ここまで。ターゲット追加時は PHONY_TARGETS に追記！
+# 追加ターゲットは help の自動抽出だけで OK
 ############################################

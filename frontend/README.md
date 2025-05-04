@@ -67,4 +67,4 @@ make dev
 
 ---
 
-© 2025 Eventa Team 
+© 2025 Eventa Team

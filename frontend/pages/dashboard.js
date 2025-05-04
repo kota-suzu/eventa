@@ -24,7 +24,7 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchUserEvents = async () => {
       if (!user) return;
-      
+
       try {
         setIsLoading(true);
         setError(null);
@@ -32,13 +32,31 @@ const Dashboard = () => {
         // TODO: APIからユーザー関連イベントを取得
         // const response = await api.get('/api/v1/events/user');
         // setUserEvents(response.data);
-        
+
         // ダミーデータ（本番では削除）
         setTimeout(() => {
           setUserEvents([
-            { id: 1, title: '新製品発表会', date: '2023-12-15', status: 'upcoming', participants: 42 },
-            { id: 2, title: 'テックカンファレンス', date: '2024-01-20', status: 'upcoming', participants: 120 },
-            { id: 3, title: '社内勉強会', date: '2023-11-05', status: 'completed', participants: 15 }
+            {
+              id: 1,
+              title: '新製品発表会',
+              date: '2023-12-15',
+              status: 'upcoming',
+              participants: 42,
+            },
+            {
+              id: 2,
+              title: 'テックカンファレンス',
+              date: '2024-01-20',
+              status: 'upcoming',
+              participants: 120,
+            },
+            {
+              id: 3,
+              title: '社内勉強会',
+              date: '2023-11-05',
+              status: 'completed',
+              participants: 15,
+            },
           ]);
           setIsLoading(false);
         }, 500);
@@ -71,12 +89,12 @@ const Dashboard = () => {
       <div className={styles.dashboardContainer}>
         <div className={styles.dashboardHeader}>
           <h1 className={styles.dashboardTitle}>ダッシュボード</h1>
-          
+
           <div className={styles.userInfo}>
             <div className={styles.welcomeMessage}>
               ようこそ、{user.name || user.attributes?.name || 'ユーザー'}さん
             </div>
-            
+
             <div className={styles.actionButtons}>
               {hasRole('organizer') && (
                 <Link href="/events/create" className={styles.createButton}>
@@ -89,11 +107,11 @@ const Dashboard = () => {
             </div>
           </div>
         </div>
-        
+
         <div className={styles.dashboardContent}>
           <div className={styles.eventsSection}>
             <h2 className={styles.sectionTitle}>あなたのイベント</h2>
-            
+
             {isLoading ? (
               <div className={styles.loading}>イベントを読み込み中...</div>
             ) : error ? (
@@ -111,7 +129,7 @@ const Dashboard = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {userEvents.map(event => (
+                    {userEvents.map((event) => (
                       <tr key={event.id}>
                         <td>{event.title}</td>
                         <td>{event.date}</td>
@@ -147,7 +165,7 @@ const Dashboard = () => {
               </div>
             )}
           </div>
-          
+
           <div className={styles.quickStats}>
             <h2 className={styles.sectionTitle}>クイック統計</h2>
             <div className={styles.statsGrid}>
@@ -157,7 +175,7 @@ const Dashboard = () => {
               </div>
               <div className={styles.statCard}>
                 <div className={styles.statValue}>
-                  {userEvents.filter(e => e.status === 'upcoming').length}
+                  {userEvents.filter((e) => e.status === 'upcoming').length}
                 </div>
                 <div className={styles.statLabel}>今後のイベント</div>
               </div>
@@ -175,4 +193,4 @@ const Dashboard = () => {
   );
 };
 
-export default Dashboard; 
+export default Dashboard;

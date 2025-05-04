@@ -3,14 +3,15 @@
 create_table "events", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
   t.string "title", null: false
   t.text "description"
-  t.datetime "start_date", null: false
-  t.datetime "end_date", null: false
-  t.string "location"
+  t.datetime "start_at", null: false
+  t.datetime "end_at", null: false
+  t.string "venue", null: false
+  t.integer "capacity", null: false
   t.boolean "is_public", default: true
   t.bigint "user_id", null: false
   t.datetime "created_at", null: false
   t.datetime "updated_at", null: false
-  t.index ["user_id", "start_date"], name: "index_events_on_user_id_and_start_date"
+  t.index ["user_id", "start_at"], name: "index_events_on_user_id_and_start_at"
   t.index ["user_id"], name: "index_events_on_user_id"
 end
 
@@ -23,6 +24,39 @@ create_table "participants", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci"
   t.index ["event_id"], name: "index_participants_on_event_id"
   t.index ["user_id", "event_id"], name: "index_participants_on_user_id_and_event_id", unique: true
   t.index ["user_id"], name: "index_participants_on_user_id"
+end
+
+create_table "tickets", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+  t.string "title", null: false
+  t.text "description"
+  t.integer "price", null: false
+  t.integer "quantity", null: false
+  t.integer "available_quantity", null: false
+  t.integer "lock_version", default: 0, null: false
+  t.bigint "event_id", null: false
+  t.datetime "created_at", null: false
+  t.datetime "updated_at", null: false
+  t.index ["event_id"], name: "index_tickets_on_event_id"
+  t.index ["event_id", "available_quantity"], name: "idx_tickets_event_available"
+  t.check_constraint "available_quantity >= 0", name: "check_ticket_available_quantity_positive"
+  t.check_constraint "available_quantity <= quantity", name: "check_ticket_available_max"
+end
+
+create_table "reservations", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+  t.bigint "user_id", null: false
+  t.bigint "ticket_id", null: false
+  t.integer "quantity", null: false
+  t.integer "total_price", null: false
+  t.string "status", null: false
+  t.string "payment_method", null: false
+  t.string "transaction_id"
+  t.datetime "paid_at"
+  t.datetime "created_at", null: false
+  t.datetime "updated_at", null: false
+  t.index ["user_id"], name: "index_reservations_on_user_id"
+  t.index ["ticket_id"], name: "index_reservations_on_ticket_id"
+  t.index ["status"], name: "index_reservations_on_status"
+  t.index ["paid_at"], name: "index_reservations_on_paid_at"
 end
 
 create_table "users", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -40,3 +74,6 @@ end
 add_foreign_key "events", "users"
 add_foreign_key "participants", "events"
 add_foreign_key "participants", "users"
+add_foreign_key "tickets", "events"
+add_foreign_key "reservations", "tickets"
+add_foreign_key "reservations", "users"

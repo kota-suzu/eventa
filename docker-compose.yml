@@ -48,6 +48,8 @@ services:
       - ./api:/app
       - bundle_cache:/usr/local/bundle
       - yarn_cache:/home/vscode/.cache/yarn
+    tty: true  # TTYを有効化（対話コマンドのサポート）
+    stdin_open: true  # STDINを有効化
 
   # フロントエンド開発サーバー
   frontend:
@@ -65,6 +67,8 @@ services:
     command: npm run dev
     depends_on:
       - api
+    tty: true  # TTYを有効化（対話コマンドのサポート）
+    stdin_open: true  # STDINを有効化
 
   # 本番環境に近い構成でテストしたい場合のみworkerを分離起動
   worker:

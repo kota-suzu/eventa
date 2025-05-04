@@ -9,16 +9,13 @@ const createJestConfig = nextJest({
 const customJestConfig = {
   // テストを検索するディレクトリを追加
   roots: ['<rootDir>/tests/'],
-  
+
   // テスト環境をDOMシミュレーションのjsdomに設定
   testEnvironment: 'jest-environment-jsdom',
-  
+
   // テストファイルのパターンを指定
-  testMatch: [
-    '<rootDir>/tests/**/*.test.js',
-    '<rootDir>/tests/**/*.test.jsx'
-  ],
-  
+  testMatch: ['<rootDir>/tests/**/*.test.js', '<rootDir>/tests/**/*.test.jsx'],
+
   // モック設定
   moduleNameMapper: {
     // スタイルモジュールをモック
@@ -26,10 +23,10 @@ const customJestConfig = {
     // 画像をモック
     '\\.(jpg|jpeg|png|gif|webp|svg)$': '<rootDir>/tests/__mocks__/fileMock.js',
   },
-  
+
   // テスト実行前にセットアップスクリプトを実行
   setupFilesAfterEnv: ['<rootDir>/tests/jest.setup.js'],
-  
+
   // カバレッジ設定
   collectCoverage: true,
   collectCoverageFrom: [
@@ -40,10 +37,10 @@ const customJestConfig = {
     '!**/*.d.ts',
     '!**/node_modules/**',
   ],
-  
+
   // JSXファイルも処理対象に含める
   moduleFileExtensions: ['js', 'jsx', 'json'],
 };
 
 // createJestConfigを使用して、Next.jsの設定を組み込んだJest設定を作成
-module.exports = createJestConfig(customJestConfig); 
+module.exports = createJestConfig(customJestConfig);

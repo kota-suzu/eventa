@@ -1,6 +1,13 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { useRouter } from 'next/router';
-import { api, getAuthToken, setAuthToken, clearAuth, getUserData, setUserData } from '../utils/auth';
+import {
+  api,
+  getAuthToken,
+  setAuthToken,
+  clearAuth,
+  getUserData,
+  setUserData,
+} from '../utils/auth';
 
 export const AuthContext = createContext();
 
@@ -19,13 +26,13 @@ export const AuthProvider = ({ children }) => {
       try {
         // トークンの取得
         const storedToken = getAuthToken();
-        
+
         if (storedToken) {
           setToken(storedToken);
-          
+
           // ユーザー情報取得（セッションストレージまたはAPIから）
           let userData = getUserData();
-          
+
           // セッションストレージにデータがなければAPIから再取得
           if (!userData) {
             try {
@@ -42,7 +49,7 @@ export const AuthProvider = ({ children }) => {
               setUser(null);
             }
           }
-          
+
           if (userData) {
             setUser(userData);
           }
@@ -53,7 +60,7 @@ export const AuthProvider = ({ children }) => {
         setLoading(false);
       }
     };
-    
+
     initAuth();
   }, []);
 
@@ -63,29 +70,32 @@ export const AuthProvider = ({ children }) => {
       setLoading(true);
       console.log('登録リクエスト送信データ:', userData);
       const response = await api.post('/auth/register', userData);
-      
+
       console.log('登録レスポンス:', response.status, response.data);
-      
+
       if (response.status === 201) {
         const { user, token } = response.data;
-        
+
         // トークンの保存
         setAuthToken(token);
         setToken(token);
-        
+
         // ユーザー情報の保存
         setUserData(user);
         setUser(user);
-        
+
         return { ok: true, user };
       }
       return { ok: false, message: '登録処理に失敗しました' };
     } catch (error) {
       console.error('Registration failed:', error);
       console.error('Error details:', error.response?.data);
-      return { 
-        ok: false, 
-        message: error.response?.data?.error || error.response?.data?.errors?.join(', ') || '登録処理中にエラーが発生しました' 
+      return {
+        ok: false,
+        message:
+          error.response?.data?.error ||
+          error.response?.data?.errors?.join(', ') ||
+          '登録処理中にエラーが発生しました',
       };
     } finally {
       setLoading(false);
@@ -99,28 +109,28 @@ export const AuthProvider = ({ children }) => {
       const response = await api.post('/auth/login', {
         email,
         password,
-        remember
+        remember,
       });
-      
+
       if (response.status === 200) {
         const { user, token } = response.data;
-        
+
         // トークンの保存
         setAuthToken(token, remember);
         setToken(token);
-        
+
         // ユーザー情報の保存
         setUserData(user);
         setUser(user);
-        
+
         return { ok: true, user };
       }
       return { ok: false, message: 'ログインに失敗しました' };
     } catch (error) {
       console.error('Login failed:', error);
-      return { 
-        ok: false, 
-        message: error.response?.data?.error || 'ログイン中にエラーが発生しました' 
+      return {
+        ok: false,
+        message: error.response?.data?.error || 'ログイン中にエラーが発生しました',
       };
     } finally {
       setLoading(false);
@@ -132,33 +142,33 @@ export const AuthProvider = ({ children }) => {
     try {
       // デバッグ用ログ
       console.log('Logout process started in AuthContext');
-      
+
       // 認証情報をクリア
       clearAuth();
-      
+
       // 状態を更新
       setUser(null);
       setToken(null);
-      
+
       console.log('State cleared, redirecting...');
-      
+
       // 遅延してリダイレクト (Next.jsの状態更新を待つ)
       setTimeout(() => {
         router.push('/');
       }, 100);
-      
+
       return true;
     } catch (error) {
       console.error('Logout error:', error);
       return false;
     }
   };
-  
+
   // 認証状態のチェック
   const isAuthenticated = () => {
     return !!token;
   };
-  
+
   // ユーザーロールに基づく権限チェック
   const hasRole = (role) => {
     if (!user) return false;
@@ -175,12 +185,8 @@ export const AuthProvider = ({ children }) => {
     logout,
     isAuthenticated,
     hasRole,
-    apiClient: api
+    apiClient: api,
   };
 
-  return (
-    <AuthContext.Provider value={contextValue}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>;
 };

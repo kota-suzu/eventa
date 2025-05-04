@@ -15,7 +15,7 @@ const TOKEN_EXPIRY_DAYS = 7;
 
 /**
  * トークンをCookieとして保存
- * 
+ *
  * @param {string} token - 認証トークン
  * @param {boolean} remember - ログイン状態を記憶するか
  */
@@ -26,16 +26,16 @@ export const setAuthToken = (token, remember = false) => {
     const options = {
       expires: remember ? TOKEN_EXPIRY_DAYS : 1,
       secure: process.env.NODE_ENV === 'production', // 本番環境では Secure属性を有効に
-      sameSite: 'Lax' // CSRF対策
+      sameSite: 'Lax', // CSRF対策
     };
-    
+
     Cookies.set('auth_token', token, options);
-    
+
     // API クライアントにも設定
     if (token) {
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     }
-    
+
     return true;
   } catch (error) {
     console.error('トークン保存エラー:', error);
@@ -45,7 +45,7 @@ export const setAuthToken = (token, remember = false) => {
 
 /**
  * 認証トークンを取得
- * 
+ *
  * @returns {string|null} 保存されたトークンまたはnull
  */
 export const getAuthToken = () => {
@@ -59,7 +59,7 @@ export const getAuthToken = () => {
 
 /**
  * ユーザーデータをセッションストレージに保存
- * 
+ *
  * @param {Object} userData - ユーザー情報
  */
 export const setUserData = (userData) => {
@@ -77,7 +77,7 @@ export const setUserData = (userData) => {
 
 /**
  * ユーザーデータを取得
- * 
+ *
  * @returns {Object|null} 保存されたユーザーデータまたはnull
  */
 export const getUserData = () => {
@@ -99,24 +99,24 @@ export const getUserData = () => {
 export const clearAuth = () => {
   try {
     // Cookie認証トークンを削除
-    Cookies.remove('auth_token', { 
+    Cookies.remove('auth_token', {
       path: '/',
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'Lax'
+      sameSite: 'Lax',
     });
-    
+
     // API ヘッダーからも削除
     delete api.defaults.headers.common['Authorization'];
-    
+
     if (typeof window !== 'undefined') {
       // セッションストレージからユーザーデータを削除
       sessionStorage.removeItem('user_data');
-      
+
       // 念のためローカルストレージからも削除を試みる（以前の実装との互換性のため）
       localStorage.removeItem('auth_token');
       localStorage.removeItem('user');
     }
-    
+
     return true;
   } catch (error) {
     console.error('認証情報クリアエラー:', error);
@@ -126,7 +126,7 @@ export const clearAuth = () => {
 
 /**
  * ユーザーが認証済みかチェック
- * 
+ *
  * @returns {boolean} 認証済みならtrue
  */
 export const isAuthenticated = () => {
@@ -138,32 +138,32 @@ export const isAuthenticated = () => {
  * @param {string} email - メールアドレス
  * @param {string} password - パスワード
  * @param {boolean} remember - ログイン状態を記憶するか
- * @returns {Promise<{ok: boolean, user?: Object, message?: string}>} 
+ * @returns {Promise<{ok: boolean, user?: Object, message?: string}>}
  */
 export const login = async (email, password, remember = false) => {
   try {
     const response = await api.post('/auth/login', {
       email,
-      password
+      password,
     });
-    
+
     if (response.status === 200) {
       const { user, token } = response.data;
-      
+
       // トークンの保存
       setAuthToken(token, remember);
-      
+
       // ユーザー情報の保存
       setUserData(user);
-      
+
       return { ok: true, user };
     }
     return { ok: false, message: 'ログインに失敗しました' };
   } catch (error) {
     console.error('Login failed:', error);
-    return { 
-      ok: false, 
-      message: error.response?.data?.error || 'ログイン中にエラーが発生しました' 
+    return {
+      ok: false,
+      message: error.response?.data?.error || 'ログイン中にエラーが発生しました',
     };
   }
 };
@@ -176,11 +176,11 @@ export const logout = async () => {
   try {
     // バックエンドにログアウトリクエストを送信（オプション）
     // await api.post('/auth/logout');
-    
+
     // フロントエンドの認証情報をクリア
     return clearAuth();
   } catch (error) {
     console.error('Logout failed:', error);
     return false;
   }
-}; 
+};

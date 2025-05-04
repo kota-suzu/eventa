@@ -19,8 +19,13 @@ class ApplicationController < ActionController::API
   # 現在のユーザーを取得
   attr_reader :current_user
 
-  # リクエストヘッダーからJWTトークンを抽出
+  # リクエストからJWTトークンを抽出
   def extract_token
+    # Cookieからトークンを取得（優先）
+    token_from_cookie = cookies.signed[:jwt]
+    return token_from_cookie if token_from_cookie.present?
+
+    # 従来のヘッダーからの取得もサポート（後方互換性のため）
     header = request.headers["Authorization"]
     header&.split(" ")&.last
   end

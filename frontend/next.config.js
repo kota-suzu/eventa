@@ -9,6 +9,6 @@ const nextConfig = {
   },
   // 静的生成の設定を調整
   exportPathMap: null, // 自動的にルートを検出させる
-}
+};
 
-module.exports = nextConfig 
+module.exports = nextConfig;

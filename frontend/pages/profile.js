@@ -35,17 +35,33 @@ const Profile = () => {
 
       <div style={{ maxWidth: '800px', margin: '0 auto', padding: '2rem' }}>
         <h1 style={{ fontSize: '2rem', marginBottom: '1.5rem' }}>プロフィール設定</h1>
-        
-        <div style={{ background: '#fff', padding: '2rem', borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
+
+        <div
+          style={{
+            background: '#fff',
+            padding: '2rem',
+            borderRadius: '8px',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+          }}
+        >
           <div style={{ marginBottom: '1.5rem' }}>
             <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>基本情報</h2>
-            <p><strong>名前:</strong> {user.name}</p>
-            <p><strong>メールアドレス:</strong> {user.email}</p>
-            <p><strong>ユーザータイプ:</strong> {user.role === 'organizer' ? 'イベント主催者' : 'イベント参加者'}</p>
+            <p>
+              <strong>名前:</strong> {user.name}
+            </p>
+            <p>
+              <strong>メールアドレス:</strong> {user.email}
+            </p>
+            <p>
+              <strong>ユーザータイプ:</strong>{' '}
+              {user.role === 'organizer' ? 'イベント主催者' : 'イベント参加者'}
+            </p>
           </div>
-          
+
           <div style={{ marginTop: '2rem' }}>
-            <p style={{ color: '#666', fontSize: '0.9rem' }}>プロフィール編集機能は近日公開予定です。</p>
+            <p style={{ color: '#666', fontSize: '0.9rem' }}>
+              プロフィール編集機能は近日公開予定です。
+            </p>
           </div>
         </div>
       </div>
@@ -53,4 +69,4 @@ const Profile = () => {
   );
 };
 
-export default Profile; 
+export default Profile;

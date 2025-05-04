@@ -9,17 +9,17 @@ const Login = () => {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    remember: false
+    remember: false,
   });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [serverError, setServerError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
-  
+
   const router = useRouter();
   const { login, isAuthenticated } = useAuth();
   const { next } = router.query; // リダイレクト用パラメータ
-  
+
   // 既にログイン済みなら指定されたURLまたはトップページへリダイレクト
   useEffect(() => {
     if (isAuthenticated()) {
@@ -31,62 +31,58 @@ const Login = () => {
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     const fieldValue = type === 'checkbox' ? checked : value;
-    
-    setFormData(prev => ({
+
+    setFormData((prev) => ({
       ...prev,
-      [name]: fieldValue
+      [name]: fieldValue,
     }));
-    
+
     // エラーをクリア
     if (errors[name]) {
-      setErrors(prev => ({
+      setErrors((prev) => ({
         ...prev,
-        [name]: ''
+        [name]: '',
       }));
     }
   };
-  
+
   const validateForm = () => {
     const newErrors = {};
-    
+
     if (!formData.email) {
       newErrors.email = 'メールアドレスを入力してください';
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = '有効なメールアドレスを入力してください';
     }
-    
+
     if (!formData.password) {
       newErrors.password = 'パスワードを入力してください';
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     // フォームをリセット
     setServerError('');
     setSuccessMessage('');
-    
+
     // バリデーション
     if (!validateForm()) {
       return;
     }
-    
+
     setIsLoading(true);
-    
+
     try {
-      const result = await login(
-        formData.email, 
-        formData.password, 
-        formData.remember
-      );
-      
+      const result = await login(formData.email, formData.password, formData.remember);
+
       if (result.ok) {
         setSuccessMessage('ログインに成功しました！リダイレクトします...');
-        
+
         // 成功メッセージを表示してから遷移
         setTimeout(() => {
           // nextパラメータがあれば、そこへリダイレクト
@@ -103,7 +99,7 @@ const Login = () => {
       setIsLoading(false);
     }
   };
-  
+
   // フィールドのスタイルを動的に設定（エラー時は赤枠など）
   const getFieldClassName = (fieldName) => {
     return `${styles.input} ${errors[fieldName] ? styles.inputError : ''}`;
@@ -115,14 +111,14 @@ const Login = () => {
         <title>ログイン | Eventa</title>
         <meta name="description" content="イベント管理システムEventaへのログインページです。" />
       </Head>
-      
+
       <div className={styles.authContainer}>
         <div className={styles.formContainer}>
           <h1 className={styles.title}>ログイン</h1>
-          
+
           {serverError && <div className={styles.error}>{serverError}</div>}
           {successMessage && <div className={styles.success}>{successMessage}</div>}
-          
+
           <form onSubmit={handleSubmit} className={styles.form}>
             <div className={styles.formGroup}>
               <label htmlFor="email">メールアドレス</label>
@@ -134,13 +130,15 @@ const Login = () => {
                 onChange={handleChange}
                 className={getFieldClassName('email')}
                 autoComplete="email"
-                aria-describedby={errors.email ? "email-error" : undefined}
+                aria-describedby={errors.email ? 'email-error' : undefined}
               />
-              {errors.email && 
-                <div id="email-error" className={styles.errorMessage}>{errors.email}</div>
-              }
+              {errors.email && (
+                <div id="email-error" className={styles.errorMessage}>
+                  {errors.email}
+                </div>
+              )}
             </div>
-            
+
             <div className={styles.formGroup}>
               <label htmlFor="password">パスワード</label>
               <input
@@ -151,13 +149,15 @@ const Login = () => {
                 onChange={handleChange}
                 className={getFieldClassName('password')}
                 autoComplete="current-password"
-                aria-describedby={errors.password ? "password-error" : undefined}
+                aria-describedby={errors.password ? 'password-error' : undefined}
               />
-              {errors.password && 
-                <div id="password-error" className={styles.errorMessage}>{errors.password}</div>
-              }
+              {errors.password && (
+                <div id="password-error" className={styles.errorMessage}>
+                  {errors.password}
+                </div>
+              )}
             </div>
-            
+
             <div className={styles.formGroup}>
               <label className={styles.checkboxLabel}>
                 <input
@@ -169,22 +169,23 @@ const Login = () => {
                 <span>ログイン状態を保持する</span>
               </label>
             </div>
-            
-            <button 
-              type="submit" 
-              className={styles.button}
-              disabled={isLoading}
-            >
+
+            <button type="submit" className={styles.button} disabled={isLoading}>
               {isLoading ? 'ログイン中...' : 'ログイン'}
             </button>
           </form>
-          
+
           <div className={styles.links}>
             <p>
-              アカウントをお持ちでないですか？ <Link href="/register" className={styles.link}>新規登録</Link>
+              アカウントをお持ちでないですか？{' '}
+              <Link href="/register" className={styles.link}>
+                新規登録
+              </Link>
             </p>
             <p>
-              <Link href="/forgot-password" className={styles.link}>パスワードをお忘れですか？</Link>
+              <Link href="/forgot-password" className={styles.link}>
+                パスワードをお忘れですか？
+              </Link>
             </p>
           </div>
         </div>
