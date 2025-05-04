@@ -45,8 +45,8 @@ gem "rswag-ui"
 gem "rack-cors"
 
 # バックグラウンドジョブ処理用
-gem "sidekiq"
-gem "sidekiq-scheduler", "~> 5.0" # ジョブスケジューリング
+gem "sidekiq", "~> 7.3.9" # TODO: sidekiq-schedulerが8系対応次第、8系にアップグレードする
+gem "sidekiq-scheduler", "~> 5.0.6" # ジョブスケジューリング
 
 # データベーススキーマ管理ツール
 gem "ridgepole", "~> 3.0.1"
@@ -59,30 +59,53 @@ gem "rack-attack"  # レート制限
 # 決済処理
 gem "stripe"
 
+# Redis関連
+gem "redis", "~> 5.4"
+
+# 開発・テスト環境での依存関係
 group :development, :test do
-  # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem
-  gem "debug", platforms: %i[mri windows], require: "debug/prelude"
+  # 警告・エラーをハイライト表示
+  gem "error_highlight", ">= 0.6.0", platforms: [:ruby]
 
-  # Static analysis for security vulnerabilities [https://brakemanscanner.org/]
-  gem "brakeman", require: false
+  # コードリント・フォーマット
+  gem "standard", require: false # Rubocopベースのスタイルガイド
 
-  # コード品質チェック用 (Standardに統一)
-  gem "standard", require: false
-
-  # テスト用ライブラリ
-  gem "rspec-rails"
-  gem "factory_bot_rails"
-  gem "shoulda-matchers"
+  # テスト用
+  gem "rspec-rails", "~> 6.1.0" # RSpecテスト
+  gem "factory_bot_rails"       # テスト用オブジェクト生成
+  gem "shoulda-matchers"        # モデルテスト補助
+  gem "faker"                   # ランダムデータ生成
 
   # OpenAPI/Swagger テスト統合用
   gem "rswag-specs"
+
+  # メモリプロファイリング（開発・テスト共通）
+  gem "memory_profiler", require: false
+
+  # テスト高速化ツール
+  gem "parallel_tests", require: false # 並列テスト実行
 end
 
+# テスト用
+group :test do
+  # データベーステスト向け
+  gem "database_cleaner-active_record" # DBクリーニング
+
+  # テスト最適化ツール
+  gem "test-prof", require: false
+  gem "get_process_mem", require: false
+end
+
+# 開発環境用のツール
 group :development do
+  # Railsのデバッグ支援ツール
+  gem "debug", platforms: %i[mri windows]
+
+  # パフォーマンスモニタリング
+  gem "stackprof"                     # スタックプロファイラー
+  gem "rack-mini-profiler"            # リクエスト性能分析
+  gem "bullet"                        # N+1クエリ検出
+
   # 開発環境で複数プロセスを同時に起動するため
   gem "foreman"
 end
-
-gem "redis", "~> 5.4"
-
-gem "database_cleaner-active_record", "~> 2.2", group: :test

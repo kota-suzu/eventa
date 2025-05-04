@@ -214,6 +214,11 @@ test-setup: ## 🧪 セットアップのテスト
 	$(COMPOSE) exec frontend npm ls --depth=0 eslint
 	@echo "\033[1;32m✓ セットアップ正常確認完了\033[0m"
 
+sidekiq-test: ## 🕒 Sidekiqジョブとスケジューラのテスト
+	$(banner) "Sidekiq Job Test"
+	$(COMPOSE) exec api bundle exec rails runner 'puts "Sidekiq: #{Sidekiq::VERSION}"; puts "Schedule Loaded: #{Sidekiq.schedule.inspect}"'
+	$(COMPOSE) exec api bundle exec rspec spec/jobs/update_ticket_type_status_job_spec.rb spec/services/ticket_type_status_update_service_spec.rb
+
 ############################################
 # 追加ターゲットは help の自動抽出だけで OK
 ############################################
