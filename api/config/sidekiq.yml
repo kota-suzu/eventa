@@ -21,9 +21,11 @@
 # デバッグログも有効にする場合は以下を有効化
 # :verbose: true
 
-:schedule:
-  update_ticket_type_status:
-    cron: '*/10 * * * *'  # 10分ごとに実行
-    class: UpdateTicketTypeStatusJob
-    queue: low
-    description: "チケットタイプの販売状態を自動更新するジョブ" 
+# スケジュール設定（sidekiq-scheduler 5.0.6形式）
+:scheduler:
+  :schedule:
+    update_ticket_type_status:
+      cron: '*/10 * * * *'  # 10分ごとに実行
+      class: UpdateTicketTypeStatusJob
+      queue: low
+      description: "チケットタイプの販売状態を自動更新するジョブ" 
