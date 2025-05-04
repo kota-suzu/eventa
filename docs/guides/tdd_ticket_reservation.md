@@ -572,3 +572,41 @@ TDDアプローチを適用することで、以下の利点が期待できま�
 - 在庫管理における競合状態を避ける同時実行制御
 - 決済連携処理のエラーハンドリング
 - ユーザーエクスペリエンスを向上させる適切なフィードバック提供 
+
+# app/models/ticket.rb
+class Ticket < ApplicationRecord
+  belongs_to :event
+  has_many :reservations
+
+  validates :title, presence: true
+  validates :event_id, presence: true
+  validates :price, numericality: { greater_than_or_equal_to: 0 }
+  validates :quantity, numericality: { greater_than_or_equal_to: 1 }
+
+  class InsufficientQuantityError < StandardError; end
+
+  def reserve(quantity)
+    check_quantity_available(quantity)
+    decrement_stock(quantity)
+  end
+
+  def self.reserve_with_lock(id, quantity)
+    transaction do
+      ticket = lock.find(id)
+      ticket.reserve(quantity)
+      ticket
+    end
+  end
+
+  private
+
+  def check_quantity_available(quantity)
+    if quantity > available_quantity
+      raise InsufficientQuantityError, "在庫が不足しています（残り#{available_quantity}枚）"
+    end
+  end
+
+  def decrement_stock(quantity)
+    update!(available_quantity: available_quantity - quantity)
+  end
+end 
