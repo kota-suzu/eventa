@@ -32,8 +32,9 @@ RSpec.describe PaymentService do
       end
 
       it "決済が失敗する場合" do
-        # Stripeエラーをモック
-        allow(Stripe::Charge).to receive(:create).and_raise(Stripe::CardError.new("カードが拒否されました", nil, nil))
+        # Stripeエラーをモック - 新しいAPI形式
+        error_mock = double("Stripe::Error", message: "カードが拒否されました")
+        allow(Stripe::Charge).to receive(:create).and_raise(Stripe::CardError.new("カードが拒否されました", {error: error_mock}))
 
         service = PaymentService.new(reservation, payment_params)
         result = service.process

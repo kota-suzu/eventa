@@ -39,17 +39,15 @@ class PaymentService
         })
 
         if charge.status == "succeeded"
-          reservation.status_confirmed!
-          reservation.touch(:paid_at) # 支払日時を記録
-          reservation.update!(transaction_id: charge.id)
+          reservation.update!(status: :confirmed, paid_at: Time.current, transaction_id: charge.id)
           Result.new(success?: true, transaction_id: charge.id)
         else
-          reservation.status_payment_failed!
+          reservation.update!(status: :payment_failed)
           Result.new(success?: false, error_message: "支払い処理に失敗しました")
         end
       end
     rescue Stripe::CardError => e
-      reservation.status_payment_failed!
+      reservation.update!(status: :payment_failed)
       Result.new(success?: false, error_message: e.message)
     end
   end

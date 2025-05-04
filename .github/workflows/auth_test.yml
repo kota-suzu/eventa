@@ -1,0 +1,111 @@
+name: 認証システムテスト
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'app/controllers/api/v1/auths_controller.rb'
+      - 'app/services/json_web_token.rb'
+      - 'app/models/user.rb'
+      - 'spec/requests/api/v1/**/*'
+      - 'spec/services/**/*'
+      - 'spec/models/user_spec.rb'
+      - 'spec/system/**/*'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'app/controllers/api/v1/auths_controller.rb'
+      - 'app/services/json_web_token.rb'
+      - 'app/models/user.rb'
+      - 'spec/requests/api/v1/**/*'
+      - 'spec/services/**/*'
+      - 'spec/models/user_spec.rb'
+      - 'spec/system/**/*'
+
+jobs:
+  auth-test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: eventa_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    env:
+      RAILS_ENV: test
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/eventa_test
+      JWT_SECRET_KEY: test_jwt_secret_for_ci_pipeline
+      JWT_EXPIRATION_HOURS: 24
+      JWT_REFRESH_EXPIRATION_DAYS: 30
+    
+    steps:
+      - name: ソースコードをチェックアウト
+        uses: actions/checkout@v3
+      
+      - name: Ruby をセットアップ
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true
+      
+      - name: 依存関係をインストール
+        run: |
+          bundle install
+      
+      - name: データベースをセットアップ
+        run: |
+          bundle exec rails db:create
+          bundle exec rails db:schema:load
+      
+      - name: 認証関連のRSpecテストを実行
+        run: |
+          bundle exec rspec \
+            spec/services/json_web_token_spec.rb \
+            spec/models/user_spec.rb \
+            spec/requests/api/v1/auths_controller_spec.rb \
+            spec/requests/api/v1/auth_api_coverage_spec.rb \
+            spec/security/auth_security_spec.rb \
+            --format documentation
+      
+      - name: テストカバレッジを確認
+        run: |
+          COVERAGE=true bundle exec rspec \
+            spec/services/json_web_token_spec.rb \
+            spec/models/user_spec.rb \
+            spec/requests/api/v1/auths_controller_spec.rb \
+            spec/requests/api/v1/auth_api_coverage_spec.rb \
+            spec/security/auth_security_spec.rb
+      
+      - name: カバレッジレポートをアップロード
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage-report
+          path: coverage
+      
+      - name: カバレッジをコメントに追加
+        uses: MishaKav/jest-coverage-comment@main
+        with:
+          title: 認証システムテストカバレッジ
+          badge-title: カバレッジ
+          coverage-path: ./coverage/lcov.info
+          coverage-threshold: 80
+      
+      - name: テスト成功時の通知
+        if: success()
+        run: |
+          echo "認証システムのテストが成功しました！"
+      
+      - name: テスト失敗時の通知
+        if: failure()
+        run: |
+          echo "認証システムのテストが失敗しました。ログを確認してください。" 

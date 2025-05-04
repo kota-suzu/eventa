@@ -10,32 +10,32 @@ RSpec.describe User, type: :model do
     it "is not valid without an email" do
       user = build(:user, email: nil)
       expect(user).not_to be_valid
-      expect(user.errors[:email]).to include("can't be blank")
+      expect(user.errors[:email]).to include("を入力してください")
     end
 
     it "is not valid with an invalid email format" do
       user = build(:user, email: "invalid-email")
       expect(user).not_to be_valid
-      expect(user.errors[:email]).to include("is invalid")
+      expect(user.errors[:email]).to include("は不正な値です")
     end
 
     it "is not valid with a duplicate email" do
       create(:user, email: "test@example.com")
       user = build(:user, email: "test@example.com")
       expect(user).not_to be_valid
-      expect(user.errors[:email]).to include("has already been taken")
+      expect(user.errors[:email]).to include("はすでに存在します")
     end
 
     it "is not valid without a name" do
       user = build(:user, name: nil)
       expect(user).not_to be_valid
-      expect(user.errors[:name]).to include("can't be blank")
+      expect(user.errors[:name]).to include("を入力してください")
     end
 
     it "is not valid with a password less than 8 characters" do
       user = build(:user, password: "short", password_confirmation: "short")
       expect(user).not_to be_valid
-      expect(user.errors[:password]).to include("is too short (minimum is 8 characters)")
+      expect(user.errors[:password]).to include("は8文字以上で入力してください")
     end
   end
 

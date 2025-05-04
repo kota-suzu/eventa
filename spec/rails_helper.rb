@@ -95,7 +95,7 @@ RSpec.configure do |config|
   end
   
   # FactoryBotのショートカットメソッドを使用可能にする（使用している場合）
-  # config.include FactoryBot::Syntax::Methods
+  config.include FactoryBot::Syntax::Methods
   
   # mockとstubを使用した時のメタテスト（使用する場合のみ有効化）
   config.mock_with :rspec do |mocks|

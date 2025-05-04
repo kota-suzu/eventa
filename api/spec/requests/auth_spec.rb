@@ -81,7 +81,7 @@ RSpec.describe "Auth", type: :request do
         expect(response).to have_http_status(:unprocessable_entity)
 
         json_response = JSON.parse(response.body)
-        expect(json_response["errors"]).to include(I18n.t("activerecord.errors.models.user.attributes.email.taken"))
+        expect(json_response["errors"]).to include("メールアドレス はすでに存在します")
       end
     end
   end

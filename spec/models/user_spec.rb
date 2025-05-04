@@ -41,19 +41,19 @@ RSpec.describe User, type: :model do
       it '名前が空の場合は無効であること' do
         user = User.new(valid_attributes.merge(name: ''))
         expect(user).not_to be_valid
-        expect(user.errors[:name]).to include(/空/i)
+        expect(user.errors[:name]).to include('を入力してください')
       end
       
       it '名前が短すぎる場合は無効であること' do
         user = User.new(valid_attributes.merge(name: 'a'))
         expect(user).not_to be_valid
-        expect(user.errors[:name]).to include(/短/i)
+        expect(user.errors[:name]).to include('は2文字以上で入力してください')
       end
       
       it '名前が長すぎる場合は無効であること' do
         user = User.new(valid_attributes.merge(name: 'a' * 51))
         expect(user).not_to be_valid
-        expect(user.errors[:name]).to include(/長/i)
+        expect(user.errors[:name]).to include('は50文字以内で入力してください')
       end
     end
     
@@ -61,7 +61,7 @@ RSpec.describe User, type: :model do
       it 'メールアドレスが空の場合は無効であること' do
         user = User.new(valid_attributes.merge(email: ''))
         expect(user).not_to be_valid
-        expect(user.errors[:email]).to include(/空/i)
+        expect(user.errors[:email]).to include('を入力してください')
       end
       
       it 'メールアドレスのフォーマットが無効な場合はエラーになること' do
@@ -70,7 +70,7 @@ RSpec.describe User, type: :model do
         invalid_emails.each do |invalid_email|
           user = User.new(valid_attributes.merge(email: invalid_email))
           expect(user).not_to be_valid
-          expect(user.errors[:email]).to include(/無効/i)
+          expect(user.errors[:email]).to include('は不正な値です')
         end
       end
       
@@ -79,7 +79,7 @@ RSpec.describe User, type: :model do
         
         user = User.new(valid_attributes)
         expect(user).not_to be_valid
-        expect(user.errors[:email]).to include(/既に使用/i)
+        expect(user.errors[:email]).to include('はすでに存在します')
       end
       
       it 'メールアドレスが大文字小文字を区別せず重複チェックすること' do
@@ -87,7 +87,7 @@ RSpec.describe User, type: :model do
         
         user = User.new(valid_attributes.merge(email: 'TEST@example.com'))
         expect(user).not_to be_valid
-        expect(user.errors[:email]).to include(/既に使用/i)
+        expect(user.errors[:email]).to include('はすでに存在します')
       end
       
       it 'メールアドレスを小文字に変換して保存すること' do
@@ -102,19 +102,19 @@ RSpec.describe User, type: :model do
       it 'パスワードが空の場合は無効であること' do
         user = User.new(valid_attributes.merge(password: '', password_confirmation: ''))
         expect(user).not_to be_valid
-        expect(user.errors[:password]).to include(/空/i)
+        expect(user.errors[:password]).to include('を入力してください')
       end
       
       it 'パスワードが短すぎる場合は無効であること' do
         user = User.new(valid_attributes.merge(password: 'pass', password_confirmation: 'pass'))
         expect(user).not_to be_valid
-        expect(user.errors[:password]).to include(/短/i)
+        expect(user.errors[:password]).to include('は8文字以上で入力してください')
       end
       
       it 'パスワードと確認用パスワードが一致しない場合は無効であること' do
         user = User.new(valid_attributes.merge(password_confirmation: 'different'))
         expect(user).not_to be_valid
-        expect(user.errors[:password_confirmation]).to include(/一致/i)
+        expect(user.errors[:password_confirmation]).to include('とパスワードの入力が一致しません')
       end
     end
   end
