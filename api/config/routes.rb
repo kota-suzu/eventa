@@ -17,6 +17,7 @@ Rails.application.routes.draw do
       resource :auth, only: [] do
         post :register
         post :login
+        post :refresh, action: :refresh_token
       end
 
       # チケット予約関連

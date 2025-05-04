@@ -1,4 +1,4 @@
-# eventa API リファレンス (v0.1.0)
+# eventa API リファレンス (v0.2.0)
 
 **ベース URL**: https://api.eventa.app
 
@@ -9,12 +9,15 @@
 | バージョン | 日付 | 変更内容 |
 |----------|------|---------|
 | v0.1.0   | 2025-05-01 | 初期リリース（MVP Alpha） |
+| v0.2.0   | 2025-05-04 | 認証システム強化（リフレッシュトークン導入）、JWT セキュリティ強化 |
 
 ## 認証と共通仕様
 
 | 項目 | 内容 |
 |-----|------|
 | 認証方式 | Bearer JWT (Authorization: Bearer \<token\>) |
+| JWT属性 | iss（発行者）、aud（対象者）、iat（発行時刻）、exp（有効期限）、jti（一意ID）などの標準クレーム |
+| リフレッシュトークン | 30日有効、トークン更新用 |
 | ロール | admin, organizer, guest（JWT claim: role） |
 | ページネーション | page / per_page クエリ、レスポンスに meta.total 等を含む |
 | エラー形式 | status, error, message, details[] |
@@ -28,7 +31,7 @@
 |---------|---------|-----|------|
 | Auth | POST | /api/v1/auth/login | ログイン（JWT取得） |
 | | POST | /api/v1/auth/register | ユーザー登録 |
-| | POST | /api/v1/auth/refresh | JWT更新 |
+| | POST | /api/v1/auth/refresh | JWT更新（リフレッシュトークン使用） |
 | | POST | /api/v1/auth/logout | ログアウト（JWT無効化） |
 | Users | GET | /api/v1/users/me | 自分のプロフィール取得 |
 | | PATCH | /api/v1/users/me | 自分のプロフィール更新 |
@@ -86,23 +89,35 @@ POST /api/v1/auth/register
 }
 ```
 
-##### レスポンス例
+または、以下の形式も受け付けます（authハッシュ内にネスト）:
+
 ```json
 {
-  "data": {
-    "id": "1",
-    "type": "users",
-    "attributes": {
+  "auth": {
+    "user": {
       "email": "taro@example.com",
+      "password": "secure_password123",
+      "password_confirmation": "secure_password123",
       "name": "山田太郎",
-      "role": "organizer",
-      "created_at": "2025-05-01T08:30:00Z"
+      "role": "organizer"
     }
-  },
-  "meta": {
-    "token": "eyJhbGciOiJIUzI1NiJ9...",
-    "expires_at": "2025-05-02T08:30:00Z"
   }
+}
+```
+
+##### レスポンス例（v0.2.0更新）
+```json
+{
+  "user": {
+    "id": 1,
+    "name": "山田太郎",
+    "email": "taro@example.com",
+    "bio": null,
+    "role": "organizer",
+    "created_at": "2025-05-01T08:30:00Z"
+  },
+  "token": "eyJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoxLCJpc3MiOiJldmVudGEtYXBpLXByb2R1Y3Rpb24iLCJhdWQiOiJldmVudGEtY2xpZW50IiwiaWF0IjoxNjIwMDAwMDAwLCJuYmYiOjE2MjAwMDAwMDAsImp0aSI6ImExYjJjM2Q0LWU1ZjYtZzdoOC1pOWowIiwiZXhwIjoxNjIwMDg2NDAwfQ.signature",
+  "refresh_token": "eyJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoxLCJzZXNzaW9uX2lkIjoiMmEzODlkMGNmM2JlM2IzMGJhNTkzOTYyMWM2Zjc4YzEiLCJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImlzcyI6ImV2ZW50YS1hcGktcHJvZHVjdGlvbiIsImF1ZCI6ImV2ZW50YS1jbGllbnQiLCJpYXQiOjE2MjAwMDAwMDAsIm5iZiI6MTYyMDAwMDAwMCwianRpIjoiazFsMm0zbjQtbzVwNi1xN3I4LXM5dDAiLCJleHAiOjE2MjI1OTIwMDB9.signature"
 }
 ```
 
@@ -119,45 +134,67 @@ POST /api/v1/auth/login
 }
 ```
 
-##### レスポンス例
+または、以下の形式も受け付けます（authハッシュ内にネスト）:
+
 ```json
 {
-  "data": {
-    "id": "1",
-    "type": "users",
-    "attributes": {
-      "email": "taro@example.com",
-      "name": "山田太郎",
-      "role": "organizer"
-    }
-  },
-  "meta": {
-    "token": "eyJhbGciOiJIUzI1NiJ9...",
-    "expires_at": "2025-05-02T09:15:00Z",
-    "refresh_token": "rt_1a2b3c4d..."
+  "auth": {
+    "email": "taro@example.com",
+    "password": "secure_password123",
+    "remember": true
   }
 }
 ```
 
-#### トークン更新
+##### レスポンス例（v0.2.0更新）
+```json
+{
+  "user": {
+    "id": 1,
+    "name": "山田太郎",
+    "email": "taro@example.com",
+    "bio": null,
+    "role": "organizer",
+    "created_at": "2025-05-01T08:30:00Z"
+  },
+  "token": "eyJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoxLCJpc3MiOiJldmVudGEtYXBpLXByb2R1Y3Rpb24iLCJhdWQiOiJldmVudGEtY2xpZW50IiwiaWF0IjoxNjIwMDAwMDAwLCJuYmYiOjE2MjAwMDAwMDAsImp0aSI6ImExYjJjM2Q0LWU1ZjYtZzdoOC1pOWowIiwiZXhwIjoxNjIwMDg2NDAwfQ.signature",
+  "refresh_token": "eyJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoxLCJzZXNzaW9uX2lkIjoiMmEzODlkMGNmM2JlM2IzMGJhNTkzOTYyMWM2Zjc4YzEiLCJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImlzcyI6ImV2ZW50YS1hcGktcHJvZHVjdGlvbiIsImF1ZCI6ImV2ZW50YS1jbGllbnQiLCJpYXQiOjE2MjAwMDAwMDAsIm5iZiI6MTYyMDAwMDAwMCwianRpIjoiazFsMm0zbjQtbzVwNi1xN3I4LXM5dDAiLCJleHAiOjE2MjI1OTIwMDB9.signature"
+}
+```
+
+#### トークン更新（v0.2.0新規追加）
 ```
 POST /api/v1/auth/refresh
 ```
 
 ##### リクエスト例
+リフレッシュトークンは以下のいずれかの方法で提供できます：
+1. リクエストボディ
 ```json
 {
-  "refresh_token": "rt_1a2b3c4d..."
+  "refresh_token": "eyJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoxLCJzZXNzaW9uX2lkIjoiMmEzODlkMGNmM2JlM2IzMGJhNTkzOTYyMWM2Zjc4YzEiLCJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImlzcyI6ImV2ZW50YS1hcGktcHJvZHVjdGlvbiIsImF1ZCI6ImV2ZW50YS1jbGllbnQiLCJpYXQiOjE2MjAwMDAwMDAsIm5iZiI6MTYyMDAwMDAwMCwianRpIjoiazFsMm0zbjQtbzVwNi1xN3I4LXM5dDAiLCJleHAiOjE2MjI1OTIwMDB9.signature"
 }
 ```
+
+2. X-Refresh-Tokenヘッダー
+```
+X-Refresh-Token: eyJhbGciOiJIUzI1NiJ9...（略）
+```
+
+3. HttpOnly Cookie（自動的に送信）
+APIはCookieからリフレッシュトークンを自動的に取得します。
 
 ##### レスポンス例
 ```json
 {
-  "meta": {
-    "token": "eyJhbGciOiJIUzI1NiJ9...[new-token]",
-    "expires_at": "2025-05-03T09:15:00Z",
-    "refresh_token": "rt_5e6f7g8h..."
+  "token": "eyJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoxLCJpc3MiOiJldmVudGEtYXBpLXByb2R1Y3Rpb24iLCJhdWQiOiJldmVudGEtY2xpZW50IiwiaWF0IjoxNjIwMDg2NDAwLCJuYmYiOjE2MjAwODY0MDAsImp0aSI6ImIxYzJkM2U0LWY1ZzYtaDdpOC1qOWswIiwiZXhwIjoxNjIwMTcyODAwfQ.new-signature",
+  "user": {
+    "id": 1,
+    "name": "山田太郎",
+    "email": "taro@example.com",
+    "bio": null,
+    "role": "organizer",
+    "created_at": "2025-05-01T08:30:00Z"
   }
 }
 ```
@@ -597,70 +634,138 @@ Authorization: Bearer <token>
 
 ## エラーレスポンス
 
+### 認証エラー
+```
+HTTP/1.1 401 Unauthorized
+```
 ```json
 {
-  "status": 422,
-  "error": "validation_error",
-  "message": "入力内容に誤りがあります。",
-  "details": [
-    {
-      "field": "attendee.email",
-      "code": "invalid_format",
-      "message": "有効なメールアドレスを入力してください。"
-    }
-  ]
+  "error": "メールアドレスまたはパスワードが無効です",
+  "status": 401
 }
 ```
 
-## ステータスコード
+### リフレッシュトークンエラー
+```
+HTTP/1.1 401 Unauthorized
+```
+```json
+{
+  "error": "無効なリフレッシュトークン",
+  "status": 401
+}
+```
 
-| コード | 説明 |
-|-------|------|
-| 200 | 成功 |
-| 201 | リソース作成成功 |
-| 400 | リクエスト不正 |
-| 401 | 認証エラー |
-| 403 | 権限不足 |
-| 404 | リソース不存在 |
-| 422 | バリデーションエラー |
-| 429 | レート制限超過 |
-| 500 | サーバーエラー |
+### 権限エラー
+```
+HTTP/1.1 403 Forbidden
+```
+```json
+{
+  "error": "このリソースにアクセスする権限がありません",
+  "status": 403
+}
+```
 
-## エラーコードと対処法
+### バリデーションエラー
+```
+HTTP/1.1 422 Unprocessable Entity
+```
+```json
+{
+  "errors": [
+    "メールアドレスは既に使用されています",
+    "パスワードは8文字以上である必要があります"
+  ],
+  "status": 422
+}
+```
 
-APIがエラーを返す場合、標準的なHTTPステータスコードと共に、詳細なエラーコードとメッセージが返されます。
+## JWTトークン形式と検証
 
-| エラーコード | 説明 | 対処法 |
-|------------|------|-------|
-| `validation_error` | 入力値のバリデーションエラー | detailsフィールドを参照して入力値を修正 |
-| `authentication_required` | 認証が必要 | 有効なトークンを取得して再リクエスト |
-| `token_expired` | トークンの期限切れ | リフレッシュトークンを使用して新しいトークンを取得 |
-| `permission_denied` | 権限不足 | 必要な権限を持つユーザーで操作 |
-| `resource_not_found` | リソースが存在しない | リソースIDを確認 |
-| `rate_limit_exceeded` | レート制限超過 | リクエスト頻度を下げる |
-| `insufficient_funds` | 支払い残高不足 | 別の支払い方法を試す |
-| `event_full` | イベント定員超過 | 他のイベントを探す |
-| `ticket_sold_out` | チケット売り切れ | 他のチケットタイプを検討 |
-| `already_checked_in` | すでにチェックイン済み | 同一チケットの重複使用は不可 |
-| `invalid_ticket_code` | 無効なチケットコード | コードを確認するか正規の購入経路を利用 |
-| `internal_server_error` | 内部サーバーエラー | しばらく待ってから再試行、問題が続く場合はサポートに連絡 |
+### アクセストークン（JWT）の構造
 
-## API利用のベストプラクティス
+```javascript
+// ヘッダー
+{
+  "alg": "HS256",
+  "typ": "JWT"
+}
 
-### レート制限の回避
-- クライアント側でのキャッシュを活用する
-- 必要な情報のみをリクエストする
-- バッチ処理の利用を検討する
+// ペイロード
+{
+  "user_id": 123,
+  "iss": "eventa-api-production",  // 発行者
+  "aud": "eventa-client",          // 対象者
+  "iat": 1620000000,               // 発行時刻
+  "nbf": 1620000000,               // 有効開始時刻
+  "jti": "a1b2c3d4-e5f6-g7h8-i9j0", // トークン一意ID
+  "exp": 1620086400                // 有効期限（24時間）
+}
 
-### エラーハンドリング
-- 全てのエラーに対応する処理を実装する
-- 429エラーの場合はバックオフアルゴリズムを実装する
-- HTTP 5xxエラーではリトライロジックを実装する
+// 署名（HMAC SHA-256）
+HMACSHA256(
+  base64UrlEncode(header) + "." + base64UrlEncode(payload),
+  secret
+)
+```
 
-### セキュリティ
-- JWTはクライアントサイドで安全に保管する
-- 不要になったトークンは明示的にログアウト（無効化）する
-- センシティブな情報はSSL/TLS経由でのみ送信する
+### リフレッシュトークンの構造
+
+```javascript
+// ヘッダー
+{
+  "alg": "HS256",
+  "typ": "JWT"
+}
+
+// ペイロード
+{
+  "user_id": 123,
+  "session_id": "2a389d0cf3be3b30ba5939621c6f78c1", // セッションID
+  "token_type": "refresh",         // トークン種別
+  "iss": "eventa-api-production",  // 発行者
+  "aud": "eventa-client",          // 対象者
+  "iat": 1620000000,               // 発行時刻
+  "nbf": 1620000000,               // 有効開始時刻
+  "jti": "k1l2m3n4-o5p6-q7r8-s9t0", // トークン一意ID
+  "exp": 1622592000                // 有効期限（30日）
+}
+
+// 署名（HMAC SHA-256）
+HMACSHA256(
+  base64UrlEncode(header) + "." + base64UrlEncode(payload),
+  secret
+)
+```
+
+## クライアント実装ガイド
+
+### トークン管理
+
+1. **アクセストークン（JWT）** - 有効期限：24時間
+   - 全てのAPI呼び出しに使用
+   - 期限切れ時はリフレッシュトークンで更新
+
+2. **リフレッシュトークン** - 有効期限：30日
+   - アクセストークン更新にのみ使用
+   - HttpOnly Cookie として保存される（セキュリティ向上）
+   - logout時に無効化
+
+### 推奨実装パターン
+
+1. **初期認証**
+   - `/api/v1/auth/login`でログイン
+   - 返却された`token`と`refresh_token`を保存
+
+2. **API呼び出し**
+   - `Authorization: Bearer {token}`ヘッダーを付与
+
+3. **トークン期限切れ処理**
+   - 401エラー時、リフレッシュトークンを使用して更新試行
+   - `/api/v1/auth/refresh`を呼び出し
+   - 新しいアクセストークンを取得して再試行
+   - リフレッシュに失敗した場合、ログイン画面にリダイレクト
 
 ## SDKとサンプルコード
 
