@@ -50,9 +50,9 @@ RSpec.describe "Api::V1::TicketTypes", type: :request do
     context "with valid parameters" do
       it "creates a new ticket type" do
         expect {
-          post api_v1_event_ticket_types_path(event), 
-               params: valid_params, 
-               headers: headers
+          post api_v1_event_ticket_types_path(event),
+            params: valid_params,
+            headers: headers
         }.to change(TicketType, :count).by(1)
 
         expect(response).to have_http_status(:created)
@@ -64,9 +64,9 @@ RSpec.describe "Api::V1::TicketTypes", type: :request do
     context "with invalid parameters" do
       it "does not create a ticket type" do
         expect {
-          post api_v1_event_ticket_types_path(event), 
-               params: { ticket_type: { name: "" } }, 
-               headers: headers
+          post api_v1_event_ticket_types_path(event),
+            params: {ticket_type: {name: ""}},
+            headers: headers
         }.not_to change(TicketType, :count)
 
         expect(response).to have_http_status(:unprocessable_entity)
@@ -78,9 +78,9 @@ RSpec.describe "Api::V1::TicketTypes", type: :request do
     let(:ticket_type) { create(:ticket_type, event: event) }
 
     it "updates the ticket type" do
-      put api_v1_event_ticket_type_path(event, ticket_type), 
-          params: { ticket_type: { name: "更新後のチケット" } }, 
-          headers: headers
+      put api_v1_event_ticket_type_path(event, ticket_type),
+        params: {ticket_type: {name: "更新後のチケット"}},
+        headers: headers
 
       expect(response).to have_http_status(:ok)
       expect(ticket_type.reload.name).to eq("更新後のチケット")
@@ -123,4 +123,4 @@ RSpec.describe "Api::V1::TicketTypes", type: :request do
     }
     JWT.encode(payload, Rails.application.credentials.secret_key_base, "HS256")
   end
-end 
+end

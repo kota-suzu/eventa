@@ -13,13 +13,13 @@ module Api
         @ticket_types = @event.ticket_types
         render json: {
           data: @ticket_types.map { |tt| ticket_type_json(tt) },
-          meta: { total: @ticket_types.count }
+          meta: {total: @ticket_types.count}
         }
       end
 
       # GET /api/v1/events/:event_id/ticket_types/:id
       def show
-        render json: { data: ticket_type_json(@ticket_type) }
+        render json: {data: ticket_type_json(@ticket_type)}
       end
 
       # POST /api/v1/events/:event_id/ticket_types
@@ -27,25 +27,25 @@ module Api
         @ticket_type = @event.ticket_types.build(ticket_type_params)
 
         if @ticket_type.save
-          render json: { data: ticket_type_json(@ticket_type) }, status: :created
+          render json: {data: ticket_type_json(@ticket_type)}, status: :created
         else
-          render json: { errors: @ticket_type.errors.full_messages }, status: :unprocessable_entity
+          render json: {errors: @ticket_type.errors.full_messages}, status: :unprocessable_entity
         end
       end
 
       # PUT /api/v1/events/:event_id/ticket_types/:id
       def update
         if @ticket_type.update(ticket_type_params)
-          render json: { data: ticket_type_json(@ticket_type) }
+          render json: {data: ticket_type_json(@ticket_type)}
         else
-          render json: { errors: @ticket_type.errors.full_messages }, status: :unprocessable_entity
+          render json: {errors: @ticket_type.errors.full_messages}, status: :unprocessable_entity
         end
       end
 
       # DELETE /api/v1/events/:event_id/ticket_types/:id
       def destroy
         if @ticket_type.tickets.exists?
-          render json: { error: "既にチケットが発行されているため、削除できません" }, status: :unprocessable_entity
+          render json: {error: "既にチケットが発行されているため、削除できません"}, status: :unprocessable_entity
           return
         end
 
@@ -65,7 +65,7 @@ module Api
 
       def authorize_event_owner!
         unless @event.user_id == current_user.id
-          render json: { error: "このイベントの編集権限がありません" }, status: :forbidden
+          render json: {error: "このイベントの編集権限がありません"}, status: :forbidden
         end
       end
 
@@ -95,4 +95,4 @@ module Api
       end
     end
   end
-end 
+end
