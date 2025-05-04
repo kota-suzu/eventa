@@ -3,6 +3,74 @@
 # PaymentServiceのモッククラス
 # テスト時に決済サービスをモック化するためのクラス
 module Mocks
+  # 結果を表す構造体
+  MockResult = Struct.new(:success?, :transaction_id, :error_message, keyword_init: true)
+
+  # モック用のクラスを事前に定義
+  class MockPaymentService
+    attr_reader :reservation, :payment_params
+
+    def initialize(reservation, payment_params)
+      @reservation = reservation
+      @payment_params = payment_params
+    end
+
+    def process
+      method_name = "process_#{payment_params[:method]}"
+
+      if respond_to?(method_name, true)
+        send(method_name)
+      else
+        MockResult.new(success?: false, error_message: "無効な支払い方法です")
+      end
+    rescue => e
+      MockResult.new(success?: false, error_message: e.message)
+    end
+
+    private
+
+    def process_credit_card
+      # テスト用の支払い成功/失敗シミュレーション
+      if payment_params[:token] == "tok_visa"
+        # 決済成功
+        transaction_id = "ch_#{SecureRandom.hex(10)}"
+
+        # トランザクションを使わず直接更新（テスト環境の安定性のため）
+        # 明示的にstringとして設定することで、enumの問題を回避
+        @reservation.status = "confirmed"
+        @reservation.paid_at = Time.current
+        @reservation.transaction_id = transaction_id
+        @reservation.save!
+
+        # 確実にデータベースから再取得
+        @reservation.reload
+
+        MockResult.new(success?: true, transaction_id: transaction_id)
+      else
+        # 決済失敗
+        @reservation.status = "payment_failed"
+        @reservation.save!
+
+        # 確実にデータベースから再取得
+        @reservation.reload
+
+        MockResult.new(success?: false, error_message: "カードが拒否されました")
+      end
+    end
+
+    def process_bank_transfer
+      # 銀行振込のシミュレーション
+      transaction_id = "bank_transfer_#{SecureRandom.hex(8)}"
+      MockResult.new(success?: true, transaction_id: transaction_id)
+    end
+
+    def process_convenience_store
+      # コンビニ決済のシミュレーション
+      transaction_id = "cvs_#{SecureRandom.hex(8)}"
+      MockResult.new(success?: true, transaction_id: transaction_id)
+    end
+  end
+
   class PaymentService
     class << self
       # テスト環境用のモック設定
@@ -12,67 +80,8 @@ module Mocks
           Object.const_set(:OriginalPaymentService, PaymentService)
         end
 
-        # モッククラスの定義
-        payment_service_mock = Class.new do
-          def self.process_payment(reservation_id:, card_token: nil, method: "credit_card")
-            reservation = Reservation.find_by(id: reservation_id)
-
-            # 基本的なバリデーション
-            return {success: false, error: "予約が見つかりません"} unless reservation
-
-            # テスト用の支払い成功/失敗シミュレーション
-            if card_token == "tok_visa" || method == "bank_transfer"
-              # 決済成功
-              reservation.update!(
-                payment_status: "completed",
-                status: "confirmed"
-              )
-
-              # 成功レスポンス
-              {
-                success: true,
-                reservation: reservation,
-                payment_id: "pay_#{SecureRandom.hex(10)}",
-                processed_at: Time.current
-              }
-            else
-              # 決済失敗
-              reservation.update!(payment_status: "failed")
-
-              # 失敗レスポンス
-              {
-                success: false,
-                error: "決済処理に失敗しました",
-                error_code: "payment_failed"
-              }
-            end
-          end
-
-          def self.refund_payment(reservation_id:)
-            reservation = Reservation.find_by(id: reservation_id)
-
-            # 基本的なバリデーション
-            return {success: false, error: "予約が見つかりません"} unless reservation
-            return {success: false, error: "支払いが完了していない予約です"} unless reservation.payment_status == "completed"
-
-            # 返金処理
-            reservation.update!(
-              payment_status: "refunded",
-              status: "cancelled"
-            )
-
-            # 成功レスポンス
-            {
-              success: true,
-              reservation: reservation,
-              refund_id: "ref_#{SecureRandom.hex(10)}",
-              refunded_at: Time.current
-            }
-          end
-        end
-
-        # モッククラスでPaymentServiceを上書き
-        Object.const_set(:PaymentService, payment_service_mock)
+        # 事前定義したモッククラスをPaymentServiceとして設定
+        Object.const_set(:PaymentService, Mocks::MockPaymentService)
       end
 
       # モック解除

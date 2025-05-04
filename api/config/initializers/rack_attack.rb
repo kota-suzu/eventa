@@ -34,7 +34,7 @@ class Rack::Attack
   end
 
   # レスポンスの設定
-  self.throttled_response = ->(env) {
+  self.throttled_responder = ->(env) {
     retry_after = (env["rack.attack.match_data"] || {})[:period]
     [
       429,

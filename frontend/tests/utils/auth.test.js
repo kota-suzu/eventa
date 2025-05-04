@@ -8,10 +8,27 @@ jest.mock('js-cookie', () => ({
   remove: jest.fn(),
 }));
 
+// sessionStorageのモック
+const mockSessionStorage = (() => {
+  let store = {};
+  return {
+    getItem: jest.fn(key => store[key] || null),
+    setItem: jest.fn((key, value) => { store[key] = value; }),
+    removeItem: jest.fn(key => { delete store[key]; }),
+    clear: jest.fn(() => { store = {}; })
+  };
+})();
+
+// windowオブジェクトのモック
+Object.defineProperty(window, 'sessionStorage', {
+  value: mockSessionStorage
+});
+
 describe('認証ユーティリティ', () => {
   // 各テスト前にモックをリセット
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSessionStorage.clear();
   });
 
   describe('getAuthToken', () => {
@@ -23,7 +40,7 @@ describe('認証ユーティリティ', () => {
       const token = getAuthToken();
 
       // 検証
-      expect(Cookies.get).toHaveBeenCalledWith('token');
+      expect(Cookies.get).toHaveBeenCalledWith('auth_token');
       expect(token).toBe('test-token');
     });
 
@@ -35,7 +52,7 @@ describe('認証ユーティリティ', () => {
       const token = getAuthToken();
 
       // 検証
-      expect(Cookies.get).toHaveBeenCalledWith('token');
+      expect(Cookies.get).toHaveBeenCalledWith('auth_token');
       expect(token).toBeNull();
     });
   });
@@ -46,7 +63,7 @@ describe('認証ユーティリティ', () => {
       setAuthToken('new-test-token');
 
       // 検証 - ここではオプションの詳細は期待値に含めないようにする
-      expect(Cookies.set).toHaveBeenCalledWith('token', 'new-test-token', expect.any(Object));
+      expect(Cookies.set).toHaveBeenCalledWith('auth_token', 'new-test-token', expect.any(Object));
     });
   });
 
@@ -56,63 +73,62 @@ describe('認証ユーティリティ', () => {
       clearAuth();
 
       // 検証
-      expect(Cookies.remove).toHaveBeenCalledWith('token');
-      expect(Cookies.remove).toHaveBeenCalledWith('user');
+      expect(Cookies.remove).toHaveBeenCalledWith('auth_token', expect.any(Object));
+      expect(mockSessionStorage.removeItem).toHaveBeenCalledWith('user_data');
     });
   });
 
   describe('getUserData', () => {
-    it('Cookieからユーザーデータを取得する', () => {
+    it('セッションストレージからユーザーデータを取得する', () => {
       // 準備
       const userData = { id: 1, name: 'テストユーザー' };
-      Cookies.get.mockReturnValue(JSON.stringify(userData));
+      mockSessionStorage.getItem.mockReturnValue(JSON.stringify(userData));
 
       // 実行
       const result = getUserData();
 
       // 検証
-      expect(Cookies.get).toHaveBeenCalledWith('user');
+      expect(mockSessionStorage.getItem).toHaveBeenCalledWith('user_data');
       expect(result).toEqual(userData);
     });
 
-    it('Cookieにユーザーデータがない場合はnullを返す', () => {
+    it('セッションストレージにユーザーデータがない場合はnullを返す', () => {
       // 準備
-      Cookies.get.mockReturnValue(undefined);
+      mockSessionStorage.getItem.mockReturnValue(null);
 
       // 実行
       const result = getUserData();
 
       // 検証
-      expect(Cookies.get).toHaveBeenCalledWith('user');
+      expect(mockSessionStorage.getItem).toHaveBeenCalledWith('user_data');
       expect(result).toBeNull();
     });
 
     it('不正なJSONの場合はnullを返す', () => {
       // 準備
-      Cookies.get.mockReturnValue('invalid-json');
+      mockSessionStorage.getItem.mockReturnValue('invalid-json');
 
       // 実行
       const result = getUserData();
 
       // 検証
-      expect(Cookies.get).toHaveBeenCalledWith('user');
+      expect(mockSessionStorage.getItem).toHaveBeenCalledWith('user_data');
       expect(result).toBeNull();
     });
   });
 
   describe('setUserData', () => {
-    it('Cookieにユーザーデータを設定する', () => {
+    it('セッションストレージにユーザーデータを設定する', () => {
       // 準備
       const userData = { id: 1, name: 'テストユーザー' };
 
       // 実行
       setUserData(userData);
 
-      // 検証 - ここではオプションの詳細は期待値に含めないようにする
-      expect(Cookies.set).toHaveBeenCalledWith(
-        'user',
-        JSON.stringify(userData),
-        expect.any(Object)
+      // 検証
+      expect(mockSessionStorage.setItem).toHaveBeenCalledWith(
+        'user_data',
+        JSON.stringify(userData)
       );
     });
   });

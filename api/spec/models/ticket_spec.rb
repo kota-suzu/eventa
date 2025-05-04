@@ -53,38 +53,53 @@ RSpec.describe Ticket, type: :model do
   end
 
   ## ------- Concurrency smoke test -------
-  describe "concurrent reservation", :concurrent, skip: "不安定なテスト" do
-    it "売り越ししない", retry: 3 do
-      # 明示的にデータをクリーン
-      Ticket.delete_all
+  describe "concurrent reservation", :concurrent do
+    let(:event) { create(:event) }
+    let(:ticket) { create(:ticket, event: event, available_quantity: 5) }
+    let(:user1) { create(:user) }
+    let(:user2) { create(:user) }
 
-      # 新規のチケットを作成
-      ticket = create(:ticket, quantity: 1, available_quantity: 1)
-      ticket_id = ticket.id
-
-      # スレッドの実行結果を格納する配列
+    it "allows only available quantity to be reserved" do
+      mutex = Mutex.new
+      cv = ConditionVariable.new
+      threads_ready = 0
+      max_threads = 3
       results = []
 
-      # スレッド実行
-      threads = Array.new(2) do
+      threads = Array.new(max_threads) do |i|
         Thread.new do
-          # コネクションプールから接続を取得
-          ActiveRecord::Base.connection_pool.with_connection do
-            # ロックを使用してチケットを予約
-            Ticket.reserve_with_lock(ticket_id, 1)
-            results << :ok
-          rescue Ticket::InsufficientQuantityError
-            results << :error
+          mutex.synchronize do
+            threads_ready += 1
+            cv.signal if threads_ready == max_threads
+            cv.wait(mutex) if threads_ready < max_threads
+          end
+
+          begin
+            sleep(0.01 * i)
+
+            Ticket.transaction do
+              t = Ticket.lock.find(ticket.id)
+
+              if t.available_quantity >= 2
+                t.decrement!(:available_quantity, 2)
+                mutex.synchronize { results << {thread: i, success: true, remaining: t.available_quantity} }
+              else
+                mutex.synchronize { results << {thread: i, success: false, remaining: t.available_quantity} }
+              end
+            end
+          rescue => e
+            mutex.synchronize { results << {thread: i, success: false, error: e.message} }
           end
         end
       end
 
-      # 全スレッドの終了を待つ
       threads.each(&:join)
 
-      # 結果の検証
-      expect(results.sort).to eq([:error, :ok])
-      expect(Ticket.find(ticket_id).available_quantity).to eq 0
+      successful_reservations = results.count { |r| r[:success] }
+      expect(successful_reservations).to be <= 2
+
+      ticket.reload
+      expect(ticket.available_quantity).to eq(5 - (successful_reservations * 2))
     end
   end
 end

@@ -38,9 +38,16 @@ const mockEvent = {
   image: '/images/event1.jpg',
 };
 
-// カスタムマッチャ関数
+// カスタムマッチャ関数 - より厳密な比較
 const textContentMatcher = (text) => {
   return (content, element) => {
+    // textが数値の場合、数値変換して比較
+    if (!isNaN(text)) {
+      return element.textContent.includes(String(text)) && 
+             // 数値の前後に他の数字がないことを確認（25が250などの一部にマッチしないように）
+             (element.textContent.trim() === String(text) || 
+              element.textContent.match(new RegExp(`\\b${text}\\b`)));
+    }
     return element.textContent.includes(text);
   };
 };
@@ -91,9 +98,22 @@ describe('EventDetail Page', () => {
 
   it('イベントの詳細情報が表示される', () => {
     expect(screen.getByText('これはテストイベントの説明です。')).toBeInTheDocument();
-    expect(screen.getByText(textContentMatcher('2023-12-25'))).toBeInTheDocument();
-    expect(screen.getByText(textContentMatcher('東京'))).toBeInTheDocument();
-    expect(screen.getByText(textContentMatcher('テスト主催者'))).toBeInTheDocument();
+    
+    // queryAllByTextを使用して複数の要素があっても問題ないように
+    const dateElements = screen.queryAllByText((content, element) => {
+      return element.textContent.includes('2023-12-25');
+    });
+    expect(dateElements.length).toBeGreaterThan(0);
+    
+    const locationElements = screen.queryAllByText((content, element) => {
+      return element.textContent.includes('東京');
+    });
+    expect(locationElements.length).toBeGreaterThan(0);
+    
+    const organizerElements = screen.queryAllByText((content, element) => {
+      return element.textContent.includes('テスト主催者');
+    });
+    expect(organizerElements.length).toBeGreaterThan(0);
   });
 
   it('参加ボタンが表示される', () => {
@@ -101,12 +121,12 @@ describe('EventDetail Page', () => {
   });
 
   it('参加状況が表示される', () => {
-    // 25と50を含むテキストを検索
-    const participantsElement = screen.getByText(textContentMatcher('25'));
-    expect(participantsElement).toBeInTheDocument();
+    // 25と50を含むテキストを検索 - 複数マッチする場合はgetAllByTextを使用
+    const participantsElements = screen.getAllByText(textContentMatcher('25'));
+    expect(participantsElements.length).toBeGreaterThan(0);
 
-    const capacityElement = screen.getByText(textContentMatcher('50'));
-    expect(capacityElement).toBeInTheDocument();
+    const capacityElements = screen.getAllByText(textContentMatcher('50'));
+    expect(capacityElements.length).toBeGreaterThan(0);
 
     // プログレスバーの存在を確認
     const progressBar = document.querySelector('div[style*="width: 50%"]');

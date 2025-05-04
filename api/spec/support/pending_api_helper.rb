@@ -6,14 +6,14 @@
 module PendingApiHelper
   # APIエンドポイントが実装されるまでテストをスキップする
   # @param message [String] スキップする理由のメッセージ
-  # @param condition [Boolean] スキップする条件。デフォルトはtrue（常にスキップ）
+  # @param condition [Boolean] スキップする条件。デフォルトはfalse（スキップしない）
   # @example
   #   # すべてのテストをスキップ
   #   skip_until_api_implemented
   #
   #   # 条件付きでスキップ
   #   skip_until_api_implemented("APIが実装されていません", Rails.env.test? && ENV['SKIP_API_TESTS'])
-  def skip_until_api_implemented(message = "APIエンドポイントが完全に実装されるまでskip", condition = true)
+  def skip_until_api_implemented(message = "APIエンドポイントが完全に実装されるまでskip", condition = false)
     before do
       skip(message) if condition
     end

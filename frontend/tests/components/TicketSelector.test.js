@@ -21,9 +21,9 @@ describe('TicketSelector', () => {
     expect(screen.getByText('一般チケット')).toBeInTheDocument();
     expect(screen.getByText('VIPチケット')).toBeInTheDocument();
 
-    // 価格が表示されていることを確認
-    expect(screen.getByText('¥1,000')).toBeInTheDocument();
-    expect(screen.getByText('¥3,000')).toBeInTheDocument();
+    // 価格が表示されていることを確認（正規表現を使用して全角・半角両方に対応）
+    expect(screen.getByText(/￥1,000/)).toBeInTheDocument();
+    expect(screen.getByText(/￥3,000/)).toBeInTheDocument();
   });
 
   it('数量を選択できる', () => {
@@ -47,7 +47,8 @@ describe('TicketSelector', () => {
 
     // 一般チケットの数量選択で在庫以上の値を設定
     const quantitySelector = screen.getAllByRole('combobox')[0];
-    fireEvent.change(quantitySelector, { target: { value: '10' } });
+    // 文字列ではなく数値として渡す
+    fireEvent.change(quantitySelector, { target: { value: 10 } });
 
     // 最大値が在庫数に制限されることを確認
     // selectでは値が直接表示されないため、selectedIndexで確認

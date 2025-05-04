@@ -3,13 +3,9 @@
 require "rails_helper"
 
 RSpec.describe PaymentService do
-  # テスト全体をスキップ - モック実装と実際の実装の不一致を修正する必要があります
-  before(:all) do
-    skip "Mocksモジュールと実際のPaymentServiceの実装が一致しないため、一時的にスキップします"
-  end
+  # モック実装と実際の実装のインターフェースを合わせた
 
   let(:user) { create(:user) }
-  let(:reservation) { create(:reservation, user: user, total_price: 2000) }
 
   # テスト開始前にPaymentServiceをモック化
   before(:all) do
@@ -32,20 +28,28 @@ RSpec.describe PaymentService do
       end
 
       it "決済が成功する" do
+        # 各テストで新しい予約を作成
+        reservation = create(:reservation, user: user, total_price: 2000, status: "pending")
+
         service = PaymentService.new(reservation, payment_params)
         result = service.process
 
         # 成功したことを確認
+        expect(result).to be_a(Mocks::MockResult)
         expect(result.success?).to be true
         expect(result.transaction_id).to match(/^ch_/)
 
-        # ステータス確認は失敗するため、それに依存しないテストにする
-        # reservation.reload
-        # expect(reservation.status).not_to be_nil
-        # expect(reservation.status.to_s).to eq("confirmed")
+        # 予約を再読み込み
+        reservation.reload
+
+        # ステータスが更新されていることを確認
+        expect(reservation.status).to eq("confirmed")
       end
 
       it "決済が失敗する場合" do
+        # 各テストで新しい予約を作成
+        reservation = create(:reservation, user: user, total_price: 2000, status: "pending")
+
         # 失敗するトークンに変更
         failed_params = payment_params.merge(token: "tok_fail")
 
@@ -53,13 +57,15 @@ RSpec.describe PaymentService do
         result = service.process
 
         # 失敗したことを確認
+        expect(result).to be_a(Mocks::MockResult)
         expect(result.success?).to be false
-        expect(result.error_message).to include("カードが拒否されました")
+        expect(result.error_message).to eq("カードが拒否されました")
 
-        # ステータス確認は失敗するため、それに依存しないテストにする
-        # reservation.reload
-        # expect(reservation.status).not_to be_nil
-        # expect(reservation.status.to_s).to eq("payment_failed")
+        # 予約を再読み込み
+        reservation.reload
+
+        # ステータスが更新されていることを確認
+        expect(reservation.status).to eq("payment_failed")
       end
     end
 
@@ -72,9 +78,11 @@ RSpec.describe PaymentService do
       end
 
       it "支払い情報が生成される" do
+        reservation = create(:reservation, user: user, total_price: 2000)
         service = PaymentService.new(reservation, payment_params)
         result = service.process
 
+        expect(result).to be_a(Mocks::MockResult)
         expect(result.success?).to be true
         expect(result.transaction_id).to include("bank_transfer_")
       end
@@ -89,9 +97,11 @@ RSpec.describe PaymentService do
       end
 
       it "エラーを返す" do
+        reservation = create(:reservation, user: user, total_price: 2000)
         service = PaymentService.new(reservation, payment_params)
         result = service.process
 
+        expect(result).to be_a(Mocks::MockResult)
         expect(result.success?).to be false
         expect(result.error_message).to eq("無効な支払い方法です")
       end

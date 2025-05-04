@@ -95,11 +95,14 @@ describe('Events Page', () => {
   it('イベントカードが表示される', () => {
     // 不確定な要素がある場合は、queryで存在確認
     const eventCards = screen.queryAllByTestId('event-card');
+    expect(eventCards.length).toBe(3); // モックイベントが3つあることを確認
 
-    // 注: 実際のコンポーネントにdata-testid="event-card"属性が必要
-    // 完全な実装をするには、以下のようなテストを追加する
-
-    // モックイベントのタイトルに関するテスト
-    expect(screen.getByText('イベントを読み込み中...')).toBeInTheDocument();
+    // モックイベントタイトルが表示されていることを確認
+    expect(screen.getByText('テクノロジーカンファレンス')).toBeInTheDocument();
+    expect(screen.getByText('音楽フェスティバル')).toBeInTheDocument();
+    expect(screen.getByText('チャリティマラソン')).toBeInTheDocument();
+    
+    // 読み込み中の表示は見えないはず
+    expect(screen.queryByText('イベントを読み込み中...')).not.toBeInTheDocument();
   });
 });

@@ -4,7 +4,8 @@ require "rails_helper"
 
 RSpec.describe "TicketReservations", type: :request do
   # すべてのテストを一時的にスキップ - APIコントローラーが完全に実装された後に有効化
-  skip_until_api_implemented
+  # 条件を満たしたので実行するためにコメントアウト
+  # skip_until_api_implemented
 
   let(:user) { create(:user) }
   let(:event) { create(:event) }
@@ -13,9 +14,8 @@ RSpec.describe "TicketReservations", type: :request do
 
   # トークン生成用のヘルパーメソッド
   def generate_token_for(user)
-    # テスト用の簡易的なトークン生成
-    # 実際の実装ではなく、モックトークンを返す
-    "test_token_for_user_#{user.id}"
+    # AuthTestHelperに定義済みのメソッドを使用
+    JsonWebToken.encode({user_id: user.id})
   end
 
   describe "POST /api/v1/ticket_reservations" do
@@ -36,7 +36,7 @@ RSpec.describe "TicketReservations", type: :request do
         end.to change(Reservation, :count).by(1)
 
         expect(response).to have_http_status(:created)
-        expect(JSON.parse(response.body)).to include("id", "status", "quantity")
+        expect(JSON.parse(response.body)).to include("reservation")
       end
 
       it "sets the user_id from the JWT token" do
@@ -55,7 +55,7 @@ RSpec.describe "TicketReservations", type: :request do
           headers: auth_headers
 
         expect(response).to have_http_status(:unprocessable_entity)
-        expect(JSON.parse(response.body)).to have_key("errors")
+        expect(JSON.parse(response.body)).to have_key("error")
       end
     end
 

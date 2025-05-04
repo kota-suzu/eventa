@@ -4,11 +4,12 @@ require "rails_helper"
 
 RSpec.describe "Auth", type: :request do
   # すべてのテストを一時的にスキップ - APIコントローラーが完全に実装された後に有効化
-  skip_until_api_implemented
+  # 条件を満たしたので実行するためにコメントアウト
+  # skip_until_api_implemented
 
-  # これらのスキップ設定は保持しておき、将来APIの実装が完了したら remove_skip 条件として使用できるようにします
-  skip_until_controller_action_implemented("Api::V1::AuthsController", "register")
-  skip_until_controller_action_implemented("Api::V1::AuthsController", "login")
+  # 既にコントローラーアクションが実装されているので不要
+  # skip_until_controller_action_implemented("Api::V1::AuthsController", "register")
+  # skip_until_controller_action_implemented("Api::V1::AuthsController", "login")
 
   describe "POST /api/v1/auths/register" do
     let(:valid_attributes) do
