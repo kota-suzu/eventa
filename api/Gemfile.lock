@@ -307,6 +307,8 @@ GEM
       rubocop-ast (>= 1.38.0, < 2.0)
     ruby-progressbar (1.13.0)
     securerandom (0.4.1)
+    shoulda-matchers (6.5.0)
+      activesupport (>= 5.2.0)
     sidekiq (8.0.3)
       connection_pool (>= 2.5.0)
       json (>= 2.9.0)
@@ -392,6 +394,7 @@ DEPENDENCIES
   rswag-api
   rswag-specs
   rswag-ui
+  shoulda-matchers
   sidekiq
   solid_cable
   solid_cache

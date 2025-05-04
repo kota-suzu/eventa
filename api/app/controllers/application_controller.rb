@@ -18,6 +18,11 @@ class ApplicationController < ActionController::API
     render_unauthorized(I18n.t("errors.auth.user_not_found")) unless @current_user
   end
 
+  # authenticate_user のエイリアスメソッド（コントローラー内で使いやすいように）
+  # 既存のDeviseメソッドとの混同を避けるため明示的にprivateにする
+  alias_method :authenticate_user!, :authenticate_user
+  private :authenticate_user!
+
   # 現在のユーザーを取得
   attr_reader :current_user
 

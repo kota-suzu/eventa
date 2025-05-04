@@ -43,8 +43,61 @@ RSpec.configure do |config|
   # DatabaseCleaner を採用するので false にする
   config.use_transactional_fixtures = false
 
-  # Include FactoryBot methods
+  # FactoryBotの設定
   config.include FactoryBot::Syntax::Methods
+
+  # テスト実行前に一度だけファクトリを定義
+  config.before(:suite) do
+    puts "テスト開始時にインメモリでファクトリを定義します"
+
+    # 既存のファクトリをクリア（重複登録を防止）
+    if FactoryBot.respond_to?(:factories)
+      FactoryBot.factories.clear
+    end
+
+    # 明示的にファクトリを定義
+    FactoryBot.define do
+      factory :user do
+        sequence(:email) { |n| "user#{n}@example.com" }
+        password { "password123" }
+        password_confirmation { "password123" }
+        name { "Test User" }
+        role { "guest" }
+
+        factory :organizer, parent: :user do
+          role { "organizer" }
+        end
+      end
+
+      factory :event do
+        sequence(:title) { |n| "Event #{n}" }
+        sequence(:description) { |n| "Description for event #{n}" }
+        start_at { 1.day.from_now }
+        end_at { 2.days.from_now }
+        venue { "Test Venue" }
+        capacity { 100 }
+        is_public { true }
+        association :user, factory: :organizer
+      end
+
+      factory :ticket do
+        sequence(:title) { |n| "Ticket #{n}" }
+        description { "Standard ticket for the event" }
+        price { 1000 }
+        quantity { 100 }
+        available_quantity { 100 }
+        association :event
+      end
+
+      factory :reservation do
+        quantity { 1 }
+        status { "pending" }
+        payment_method { "credit_card" }
+        association :user
+        association :ticket
+      end
+    end
+  end
 
   # テストパフォーマンス改善: CIモードではプロファイリングを無効化
   config.profile_examples = ENV["CI"] ? 0 : 10
@@ -71,4 +124,14 @@ RSpec.configure do |config|
   config.filter_rails_from_backtrace!
   # arbitrary gems may also be filtered via:
   # config.filter_gems_from_backtrace("gem name")
+end
+
+# Shoulda Matchersの設定
+if defined?(Shoulda::Matchers)
+  Shoulda::Matchers.configure do |config|
+    config.integrate do |with|
+      with.test_framework :rspec
+      with.library :rails
+    end
+  end
 end

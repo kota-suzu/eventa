@@ -46,5 +46,12 @@ module Api
 
     # フロントエンドのオリジンを設定（環境変数から取得、デフォルトは開発環境向け）
     config.frontend_origin = ENV.fetch("FRONTEND_ORIGIN", "http://localhost:3000")
+
+    # テスト環境でのFactoryBotの挙動を制御する
+    if Rails.env.test?
+      # FactoryBotの設定（Rails起動時の早い段階で設定）
+      config.factory_bot.definition_file_paths = []
+      config.factory_bot.enabled = false
+    end
   end
 end

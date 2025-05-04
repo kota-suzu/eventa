@@ -1,6 +1,6 @@
 module Api
   module V1
-    class AuthsController < ApplicationController
+    class AuthController < ApplicationController
       # 認証をスキップ - 新規登録とログインは認証不要
       skip_before_action :authenticate_user, only: [:register, :login, :refresh_token]
 

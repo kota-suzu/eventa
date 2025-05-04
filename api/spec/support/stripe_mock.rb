@@ -1,26 +1,51 @@
 # frozen_string_literal: true
 
-# Stripeモジュールとクラスのモック
-module Stripe
-  class Charge
-    attr_reader :id, :status
-
-    def initialize(id:, status:)
-      @id = id
-      @status = status
+# テスト用のStripeモック
+module StripeMock
+  def self.setup
+    # Stripeクラスが存在しない場合は、モックで作成
+    unless Object.const_defined?("Stripe")
+      Object.const_set(:Stripe, Module.new)
     end
 
-    def self.create(params)
-      # テスト用の成功レスポンスを返す
-      new(id: "ch_#{SecureRandom.hex(8)}", status: "succeeded")
+    # Stripe::Chargeクラスをモック作成
+    unless Stripe.const_defined?("Charge")
+      Stripe.const_set(:Charge, Class.new)
+    end
+
+    # Stripe::CardErrorクラスをモック作成
+    unless Stripe.const_defined?("CardError")
+      Stripe.const_set(:CardError, Class.new(StandardError))
+    end
+
+    # Stripe::Charge.createメソッドをモック
+    Stripe::Charge.define_singleton_method(:create) do |params|
+      if params[:source] == "tok_visa"
+        # 成功した場合
+        charge = Object.new
+        charge.define_singleton_method(:id) { "ch_#{SecureRandom.hex(10)}" }
+        charge.define_singleton_method(:status) { "succeeded" }
+        charge
+      else
+        # 失敗した場合
+        error = Object.new
+        error.define_singleton_method(:message) { "カードが拒否されました" }
+        # 引数シグネチャを本家Stripegemに合わせる
+        raise Stripe::CardError.new("カードが拒否されました", params[:source], code: "card_declined")
+      end
     end
   end
 
-  # CardErrorクラスはすでに実際のStripe gemで定義されているため、
-  # モックではなく実際のクラスを使用します。
-  # 必要に応じてここでは代わりにモックメソッドを定義します。
-  # 例：
-  # def self.mock_card_error
-  #   raise CardError.new("テスト用のカードエラー", "card_number", "invalid_number")
-  # end
+  def self.teardown
+    # モックを元に戻す
+    if Object.const_defined?("Stripe")
+      if Stripe.const_defined?("Charge")
+        Stripe.send(:remove_const, :Charge)
+      end
+
+      if Stripe.const_defined?("CardError")
+        Stripe.send(:remove_const, :CardError)
+      end
+    end
+  end
 end
