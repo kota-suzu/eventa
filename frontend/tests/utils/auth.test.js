@@ -12,16 +12,22 @@ jest.mock('js-cookie', () => ({
 const mockSessionStorage = (() => {
   let store = {};
   return {
-    getItem: jest.fn(key => store[key] || null),
-    setItem: jest.fn((key, value) => { store[key] = value; }),
-    removeItem: jest.fn(key => { delete store[key]; }),
-    clear: jest.fn(() => { store = {}; })
+    getItem: jest.fn((key) => store[key] || null),
+    setItem: jest.fn((key, value) => {
+      store[key] = value;
+    }),
+    removeItem: jest.fn((key) => {
+      delete store[key];
+    }),
+    clear: jest.fn(() => {
+      store = {};
+    }),
   };
 })();
 
 // windowオブジェクトのモック
 Object.defineProperty(window, 'sessionStorage', {
-  value: mockSessionStorage
+  value: mockSessionStorage,
 });
 
 describe('認証ユーティリティ', () => {

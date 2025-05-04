@@ -101,7 +101,7 @@ describe('Events Page', () => {
     expect(screen.getByText('テクノロジーカンファレンス')).toBeInTheDocument();
     expect(screen.getByText('音楽フェスティバル')).toBeInTheDocument();
     expect(screen.getByText('チャリティマラソン')).toBeInTheDocument();
-    
+
     // 読み込み中の表示は見えないはず
     expect(screen.queryByText('イベントを読み込み中...')).not.toBeInTheDocument();
   });

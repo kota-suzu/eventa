@@ -22,7 +22,7 @@ if (typeof window !== 'undefined') {
     設定値: API_BASE_URL,
     パスプレフィックス: API_PATH_PREFIX,
     baseURL: api.defaults.baseURL,
-    withCredentials: api.defaults.withCredentials
+    withCredentials: api.defaults.withCredentials,
   });
 }
 
@@ -34,12 +34,12 @@ api.interceptors.response.use(
       console.error('ネットワークエラー詳細:', {
         baseURL: api.defaults.baseURL,
         requestUrl: error.config?.url,
-        fullUrl: error.config?.url?.startsWith('http') 
-          ? error.config.url 
+        fullUrl: error.config?.url?.startsWith('http')
+          ? error.config.url
           : `${api.defaults.baseURL}${error.config?.url}`.replace(/\/+/g, '/'),
         method: error.config?.method,
         headers: error.config?.headers,
-        data: error.config?.data
+        data: error.config?.data,
       });
     } else if (error.response) {
       console.error('APIエラー詳細:', {
@@ -47,7 +47,7 @@ api.interceptors.response.use(
         statusText: error.response.statusText,
         data: error.response.data,
         url: error.config?.url,
-        method: error.config?.method
+        method: error.config?.method,
       });
     }
     return Promise.reject(error);
@@ -58,42 +58,45 @@ api.interceptors.response.use(
 export const testApiConnection = async () => {
   try {
     console.log('APIクライアント設定:', {
-      baseURL: api.defaults.baseURL
+      baseURL: api.defaults.baseURL,
     });
-    
+
     // 相対パスを使用（Next.jsのプロキシ経由）
     const healthEndpoint = 'healthz';
-    console.log('テストリクエスト送信先(相対パス):', `${api.defaults.baseURL}/${healthEndpoint}`.replace(/\/+/g, '/'));
-    
+    console.log(
+      'テストリクエスト送信先(相対パス):',
+      `${api.defaults.baseURL}/${healthEndpoint}`.replace(/\/+/g, '/')
+    );
+
     // 直接fetchを使ってAPIに接続テスト（相対パスを使用）
     const fetchResponse = await fetch(`/${healthEndpoint}`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
     });
-    
+
     console.log('Fetch接続テスト結果:', {
       ok: fetchResponse.ok,
       status: fetchResponse.status,
-      statusText: fetchResponse.statusText
+      statusText: fetchResponse.statusText,
     });
-    
+
     // axiosを使ってAPIに接続テスト（相対パスを使用）
     try {
       const axiosResponse = await api.get(healthEndpoint);
       console.log('Axios接続テスト結果:', {
         status: axiosResponse.status,
-        data: axiosResponse.data
+        data: axiosResponse.data,
       });
     } catch (axiosError) {
       console.log('Axios接続テストエラー:', axiosError.message);
     }
-    
+
     return { success: true };
   } catch (error) {
     console.error('API接続テストエラー:', error);
-    return { 
-      success: false, 
-      error: error.message 
+    return {
+      success: false,
+      error: error.message,
     };
   }
 };

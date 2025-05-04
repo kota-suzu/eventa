@@ -7,7 +7,7 @@ const nextConfig = {
     // カスタムエラーページを無効化（ビルドエラー解決のため）
     disableOptimizedLoading: true,
   },
-  
+
   // 警告の解消: exportPathMapをnullではなくundefinedに設定
   // exportPathMap: null, // 自動的にルートを検出させる
 
@@ -15,27 +15,26 @@ const nextConfig = {
   async rewrites() {
     // 環境変数のデバッグ出力
     console.log('環境変数 NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL);
-    
+
     // APIのベースURL（環境変数がない場合のフォールバック）
     // ブラウザからアクセスする場合はlocalhostを使用
-    const apiBaseUrl = process.env.NODE_ENV === 'development' 
-      ? (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001')
-      : (process.env.NEXT_PUBLIC_API_URL || 'http://api:3000');
-    
+    const apiBaseUrl =
+      process.env.NODE_ENV === 'development'
+        ? process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+        : process.env.NEXT_PUBLIC_API_URL || 'http://api:3000';
+
     // URL末尾のスラッシュを削除（一貫性のため）
-    const normalizedApiUrl = apiBaseUrl.endsWith('/') 
-      ? apiBaseUrl.slice(0, -1) 
-      : apiBaseUrl;
-    
+    const normalizedApiUrl = apiBaseUrl.endsWith('/') ? apiBaseUrl.slice(0, -1) : apiBaseUrl;
+
     console.log('正規化されたAPIベースURL:', normalizedApiUrl);
-    
+
     // 開発環境での注意事項
     if (process.env.NODE_ENV === 'development') {
       console.log('開発環境では、APIリクエストは次のパスにプロキシされます:');
       console.log(`- /api/v1/* → ${normalizedApiUrl}/api/v1/*`);
       console.log(`- /healthz → ${normalizedApiUrl}/healthz`);
     }
-    
+
     return [
       // APIへのリクエストをプロキシ - パスプレフィックスあり
       {
@@ -51,7 +50,7 @@ const nextConfig = {
       {
         source: '/api:3000/:path*',
         destination: `${normalizedApiUrl}/:path*`,
-      }
+      },
     ];
   },
 };

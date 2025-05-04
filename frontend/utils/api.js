@@ -24,7 +24,7 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
     環境変数: process.env.NEXT_PUBLIC_API_URL,
     相対パス: true,
     パスプレフィックス: API_PATH_PREFIX,
-    最終URL: apiClient.defaults.baseURL
+    最終URL: apiClient.defaults.baseURL,
   });
 }
 
@@ -50,7 +50,7 @@ apiClient.interceptors.response.use(
       logout();
       Router.push('/login');
     }
-    
+
     // ネットワークエラーの詳細ログ
     if (error.message === 'Network Error') {
       console.error('APIネットワークエラー:', {
@@ -59,10 +59,10 @@ apiClient.interceptors.response.use(
         fullUrl: `${apiClient.defaults.baseURL}/${error.config?.url}`.replace(/\/+/g, '/'),
         method: error.config?.method,
         headers: error.config?.headers,
-        data: error.config?.data
+        data: error.config?.data,
       });
     }
-    
+
     return Promise.reject(error);
   }
 );
@@ -75,8 +75,8 @@ apiClient.interceptors.response.use(
  */
 export async function fetchApi(endpoint, options = {}) {
   // 相対パスで指定（baseURLが使われる）
-  const url = endpoint.startsWith('/') 
-    ? `${apiClient.defaults.baseURL}${endpoint}` 
+  const url = endpoint.startsWith('/')
+    ? `${apiClient.defaults.baseURL}${endpoint}`
     : `${apiClient.defaults.baseURL}/${endpoint}`;
 
   if (process.env.NODE_ENV === 'development') {

@@ -43,10 +43,12 @@ const textContentMatcher = (text) => {
   return (content, element) => {
     // textが数値の場合、数値変換して比較
     if (!isNaN(text)) {
-      return element.textContent.includes(String(text)) && 
-             // 数値の前後に他の数字がないことを確認（25が250などの一部にマッチしないように）
-             (element.textContent.trim() === String(text) || 
-              element.textContent.match(new RegExp(`\\b${text}\\b`)));
+      return (
+        element.textContent.includes(String(text)) &&
+        // 数値の前後に他の数字がないことを確認（25が250などの一部にマッチしないように）
+        (element.textContent.trim() === String(text) ||
+          element.textContent.match(new RegExp(`\\b${text}\\b`)))
+      );
     }
     return element.textContent.includes(text);
   };
@@ -98,18 +100,18 @@ describe('EventDetail Page', () => {
 
   it('イベントの詳細情報が表示される', () => {
     expect(screen.getByText('これはテストイベントの説明です。')).toBeInTheDocument();
-    
+
     // queryAllByTextを使用して複数の要素があっても問題ないように
     const dateElements = screen.queryAllByText((content, element) => {
       return element.textContent.includes('2023-12-25');
     });
     expect(dateElements.length).toBeGreaterThan(0);
-    
+
     const locationElements = screen.queryAllByText((content, element) => {
       return element.textContent.includes('東京');
     });
     expect(locationElements.length).toBeGreaterThan(0);
-    
+
     const organizerElements = screen.queryAllByText((content, element) => {
       return element.textContent.includes('テスト主催者');
     });
