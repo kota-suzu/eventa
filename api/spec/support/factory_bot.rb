@@ -14,10 +14,18 @@ RSpec.configure do |config|
       FactoryBot.factories.clear
     end
 
-    # 定義を再読み込み
-    FactoryBot.find_definitions
+    # 定義ファイルのパスを明示的に指定
+    factories_path = File.join(Rails.root, "spec", "factories")
+    warn "ファクトリーパス: #{factories_path}"
+
+    # ファクトリーファイルを直接要求
+    Dir[File.join(factories_path, "**", "*.rb")].sort.each do |factory_file|
+      warn "ファクトリーファイル読み込み: #{factory_file}"
+      require factory_file
+    end
   rescue => e
     puts "エラー: FactoryBot初期化中に問題が発生しました: #{e.message}"
+    puts e.backtrace.join("\n")
   end
 
   # テスト間でファクトリオブジェクトのキャッシュをクリア
