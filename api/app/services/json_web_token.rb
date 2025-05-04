@@ -13,7 +13,7 @@ class JsonWebToken
     def encode(payload, exp = DEFAULT_EXP)
       payload = payload.dup
       now = Time.current.to_i
-      
+
       # セキュリティ強化のための標準クレーム
       payload[:iss] = ISSUER            # 発行者
       payload[:aud] = AUDIENCE          # 対象者
@@ -21,7 +21,7 @@ class JsonWebToken
       payload[:nbf] = now               # 有効開始時刻
       payload[:jti] = SecureRandom.uuid # 一意のトークンID
       payload[:exp] = exp.from_now.to_i # 有効期限
-      
+
       JWT.encode(payload, SECRET, "HS256")
     end
 
@@ -32,9 +32,9 @@ class JsonWebToken
       # verify_iatで発行時刻を検証
       # leeway：検証時の時間ずれを許容する秒数
       decoded = JWT.decode(
-        token, 
-        SECRET, 
-        true, 
+        token,
+        SECRET,
+        true,
         {
           algorithm: "HS256",
           verify_iss: true,
@@ -50,18 +50,18 @@ class JsonWebToken
       Rails.logger.error("JWT decode error: #{e.class} - #{e.message}")
       nil
     end
-    
+
     # リフレッシュトークンの生成（ユーザーIDと一意のセッションIDを含む）
     def generate_refresh_token(user_id)
       session_id = SecureRandom.hex(16)
       refresh_exp = Rails.configuration.x.jwt[:refresh_expiration] || 30.days
-      
+
       payload = {
         user_id: user_id,
         session_id: session_id,
-        token_type: 'refresh'
+        token_type: "refresh"
       }
-      
+
       token = encode(payload, refresh_exp)
       [token, session_id]
     end

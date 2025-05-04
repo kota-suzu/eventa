@@ -11,12 +11,12 @@ module Api
         if @user.save
           # アクセストークンとリフレッシュトークンを生成
           token = generate_jwt_token(@user)
-          refresh_token, session_id = JsonWebToken.generate_refresh_token(@user.id)
-          
+          refresh_token, _ = JsonWebToken.generate_refresh_token(@user.id)
+
           # Cookieにも保存
           set_jwt_cookie(token)
           set_refresh_token_cookie(refresh_token)
-          
+
           # ユーザーのセッション情報を保存（通常はRedisなどに保存）
           # SessionManager.save_session(user_id: @user.id, session_id: session_id)
 
@@ -37,18 +37,18 @@ module Api
         # authハッシュからのパラメータとルートレベルの両方をサポート
         email = auth_params[:email]
         password = auth_params[:password]
-        
+
         @user = User.authenticate(email, password)
 
         if @user
           # アクセストークンとリフレッシュトークンを生成
           token = generate_jwt_token(@user)
-          refresh_token, session_id = JsonWebToken.generate_refresh_token(@user.id)
-          
+          refresh_token, _ = JsonWebToken.generate_refresh_token(@user.id)
+
           # Cookieにも保存
           set_jwt_cookie(token)
           set_refresh_token_cookie(refresh_token)
-          
+
           # ユーザーのセッション情報を保存（通常はRedisなどに保存）
           # SessionManager.save_session(user_id: @user.id, session_id: session_id)
 
@@ -63,40 +63,40 @@ module Api
           }, status: :unauthorized
         end
       end
-      
+
       # POST /api/v1/auth/refresh
       def refresh_token
         # リフレッシュトークンを取得
         refresh_token = extract_refresh_token
-        
+
         if refresh_token.blank?
-          return render json: { error: "リフレッシュトークンが見つかりません" }, status: :unauthorized
+          return render json: {error: "リフレッシュトークンが見つかりません"}, status: :unauthorized
         end
-        
+
         # リフレッシュトークンをデコード
         payload = JsonWebToken.decode(refresh_token)
-        
+
         if payload.nil? || payload["token_type"] != "refresh"
-          return render json: { error: "無効なリフレッシュトークン" }, status: :unauthorized
+          return render json: {error: "無効なリフレッシュトークン"}, status: :unauthorized
         end
-        
+
         # リフレッシュトークンが有効なセッションかチェック（本来はRedisなどと照合）
         # session_valid = SessionManager.valid_session?(user_id: payload["user_id"], session_id: payload["session_id"])
         # return render_unauthorized("無効なセッション") unless session_valid
-        
+
         # ユーザーが存在するか確認
         user = User.find_by(id: payload["user_id"])
-        
+
         if user.nil?
-          return render json: { error: "ユーザーが見つかりません" }, status: :unauthorized
+          return render json: {error: "ユーザーが見つかりません"}, status: :unauthorized
         end
-        
+
         # 新しいアクセストークンを生成
         new_token = generate_jwt_token(user)
-        
+
         # Cookieに新しいトークンを設定
         set_jwt_cookie(new_token)
-        
+
         render json: {
           token: new_token,
           user: user_response(user)
@@ -117,7 +117,7 @@ module Api
           params.require(:user).permit(:name, :email, :password, :password_confirmation, :bio, :role)
         end
       end
-      
+
       def auth_params
         # authハッシュがある場合はそれを使い、なければルートレベルのパラメータを使用
         if params[:auth].present?
@@ -141,7 +141,7 @@ module Api
           expires: 24.hours.from_now
         }
       end
-      
+
       def set_refresh_token_cookie(token)
         cookies.signed[:refresh_token] = {
           value: token,
@@ -151,16 +151,16 @@ module Api
           expires: 30.days.from_now
         }
       end
-      
+
       def extract_refresh_token
         # Cookieからリフレッシュトークンを取得
         token_from_cookie = cookies.signed[:refresh_token]
         return token_from_cookie if token_from_cookie.present?
-        
+
         # ヘッダーからも取得可能にする
         header = request.headers["X-Refresh-Token"]
         return header if header.present?
-        
+
         # ボディからも取得可能にする
         params[:refresh_token]
       end

@@ -1,6 +1,6 @@
 class ApplicationController < ActionController::API
   include ActionController::Cookies
-  
+
   # デフォルトで全アクションに認証を要求
   before_action :authenticate_user
 
