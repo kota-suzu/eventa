@@ -14,23 +14,22 @@ RSpec.describe TicketType, type: :model do
 
     it { should validate_presence_of(:name) }
     it { should validate_length_of(:name).is_at_most(100) }
-    
+
     it { should validate_presence_of(:price_cents) }
     it { should validate_numericality_of(:price_cents).is_greater_than_or_equal_to(0) }
-    
+
     it { should validate_presence_of(:quantity) }
     it { should validate_numericality_of(:quantity).is_greater_than_or_equal_to(0) }
-    
+
     it { should validate_presence_of(:sales_start_at) }
     it { should validate_presence_of(:sales_end_at) }
-    
+
     it { should validate_presence_of(:status) }
 
     it "sales_end_at should be after sales_start_at" do
-      ticket_type = build(:ticket_type, 
+      ticket_type = build(:ticket_type,
         sales_start_at: Time.current,
-        sales_end_at: 1.hour.ago
-      )
+        sales_end_at: 1.hour.ago)
       expect(ticket_type).not_to be_valid
       expect(ticket_type.errors[:sales_end_at]).to include("は販売開始日時より後に設定してください")
     end
@@ -38,7 +37,7 @@ RSpec.describe TicketType, type: :model do
 
   describe "defaults" do
     let(:event) { create(:event) }
-    
+
     it "sets currency to JPY by default" do
       ticket_type = TicketType.new(event: event)
       expect(ticket_type.currency).to eq("JPY")
@@ -90,27 +89,24 @@ RSpec.describe TicketType, type: :model do
 
   describe "scopes" do
     let!(:past_ticket) do
-      create(:ticket_type, 
+      create(:ticket_type,
         sales_start_at: 2.days.ago,
         sales_end_at: 1.day.ago,
-        status: "on_sale"
-      )
+        status: "on_sale")
     end
-    
+
     let!(:current_ticket) do
-      create(:ticket_type, 
+      create(:ticket_type,
         sales_start_at: 1.day.ago,
         sales_end_at: 1.day.from_now,
-        status: "on_sale"
-      )
+        status: "on_sale")
     end
 
     let!(:future_ticket) do
-      create(:ticket_type, 
+      create(:ticket_type,
         sales_start_at: 1.day.from_now,
         sales_end_at: 2.days.from_now,
-        status: "draft"
-      )
+        status: "draft")
     end
 
     let!(:soldout_ticket) do
@@ -130,4 +126,4 @@ RSpec.describe TicketType, type: :model do
       expect(TicketType.active).not_to include(soldout_ticket)
     end
   end
-end 
+end

@@ -5,7 +5,7 @@ class Ticket < ApplicationRecord
   belongs_to :ticket_type, optional: true
   has_many :reservations, dependent: :restrict_with_exception
 
-  validates :title, presence: true
+  validates :title, presence: true, length: {maximum: 100}
   validates :event_id, presence: true
   validates :price, numericality: {greater_than_or_equal_to: 0}
   validates :quantity, numericality: {greater_than_or_equal_to: 1}
@@ -45,6 +45,10 @@ class Ticket < ApplicationRecord
   end
 
   def check_quantity_available(quantity)
+    unless quantity.is_a?(Integer) && quantity > 0
+      raise ArgumentError, "数量は正の整数である必要があります"
+    end
+
     if quantity > available_quantity
       raise InsufficientQuantityError, "在庫が不足しています（残り#{available_quantity}枚）"
     end

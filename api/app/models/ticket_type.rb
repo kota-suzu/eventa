@@ -16,7 +16,8 @@ class TicketType < ApplicationRecord
   attribute :currency, :string, default: "JPY"
   attribute :status, :string, default: "draft"
 
-  enum status: {
+  # Rails 8.0 での enum 構文
+  enum :status, {
     draft: "draft",       # 準備中
     on_sale: "on_sale",   # 販売中
     soldout: "soldout",   # 売切れ
@@ -25,8 +26,15 @@ class TicketType < ApplicationRecord
 
   # スコープ
   scope :on_sale, -> { where(status: "on_sale") }
-  scope :active, -> { 
+  scope :active, -> {
     on_sale.where("sales_start_at <= ? AND sales_end_at >= ?", Time.current, Time.current)
+  }
+
+  # パフォーマンス向上のためのスコープ
+  scope :with_ticket_counts, -> {
+    left_joins(:tickets)
+      .select("ticket_types.*, COALESCE(SUM(tickets.quantity), 0) as sold_count")
+      .group("ticket_types.id")
   }
 
   # メソッド
@@ -39,29 +47,26 @@ class TicketType < ApplicationRecord
   end
 
   def remaining_quantity
-    if tickets.any?
-      quantity - tickets.sum(:quantity)
+    if defined?(@remaining_quantity)
+      return @remaining_quantity
+    end
+
+    if respond_to?(:sold_count)
+      # with_ticket_counts スコープが使われている場合
+      @remaining_quantity = quantity - (sold_count || 0)
     else
-      quantity
+      # クエリを効率化（count() の代わりに sum() を使用）
+      sold = tickets.sum(:quantity) || 0
+      @remaining_quantity = quantity - sold
     end
+
+    @remaining_quantity
   end
 
-  # 販売状況の自動チェック
-  def update_status_based_on_time
-    now = Time.current
-
-    if status == "draft" && sales_start_at <= now
-      update(status: "on_sale")
-    elsif status == "on_sale" && sales_end_at < now
-      update(status: "closed")
-    end
-  end
-
-  # 在庫状況の自動チェック
-  def update_status_based_on_stock
-    if status == "on_sale" && remaining_quantity <= 0
-      update(status: "soldout")
-    end
+  # カウントとイベントを一度に取得するクラスメソッド
+  def self.with_remaining_quantities
+    joins("LEFT JOIN (SELECT ticket_type_id, SUM(quantity) as total_sold FROM tickets GROUP BY ticket_type_id) as t ON t.ticket_type_id = ticket_types.id")
+      .select("ticket_types.*, (ticket_types.quantity - COALESCE(t.total_sold, 0)) as remaining")
   end
 
   private
@@ -73,4 +78,4 @@ class TicketType < ApplicationRecord
       errors.add(:sales_end_at, "は販売開始日時より後に設定してください")
     end
   end
-end 
+end
