@@ -8,7 +8,7 @@ Sidekiq.configure_server do |config|
     if Rails.env.test?
       Sidekiq.logger.info "テスト環境のためスケジューラを無効化します"
       Sidekiq::Scheduler.enabled = false
-      return
+      next
     end
 
     Sidekiq::Scheduler.enabled = true
