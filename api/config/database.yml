@@ -14,19 +14,22 @@ default: &default
   encoding: utf8mb4
   pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
   username: <%= ENV.fetch("DATABASE_USERNAME") { "root" } %>
-  password: <%= ENV.fetch("DATABASE_PASSWORD") { "" } %>
-  host: <%= ENV.fetch("DB_HOST") { "db" } %>
+  password: <%= ENV.fetch("DATABASE_PASSWORD") { "rootpass" } %>
+  host: <%= ENV.fetch("DB_HOST") { "localhost" } %>
+  port: <%= ENV.fetch("DB_PORT") { 3306 } %>
+  socket: <%= ENV.fetch("DB_SOCKET") { "/tmp/mysql.sock" } %>
 
 development:
   <<: *default
-  database: api_development
+  database: eventa_development
 
-# Warning: The database defined as "test" will be erased and
-# re-generated from your development database when you run "rake".
-# Do not set this db to the same as development or production.
-test:
+# 注意：テスト環境はprepare_databaseタスクを実行するとき
+# または環境変数TEST_ENV_NUMBERが設定されていないとき、eventa_testが使われます
+# テストの並列実行で効率的に動作するようにします
+test: &test
   <<: *default
-  database: api_test
+  database: eventa_test
+  pool: <%= ENV.fetch("PARALLEL_TEST_WORKERS") { 4 } %>
 
 # As with config/credentials.yml, you never want to store sensitive information,
 # like your database password, in your source code. If your source code is
@@ -49,20 +52,10 @@ test:
 # for a full overview on how database connection configuration can be specified.
 #
 production:
-  primary: &primary_production
-    <<: *default
-    database: api_production
-    username: api
-    password: <%= ENV["API_DATABASE_PASSWORD"] %>
-  cache:
-    <<: *primary_production
-    database: api_production_cache
-    migrations_paths: db/cache_migrate
-  queue:
-    <<: *primary_production
-    database: api_production_queue
-    migrations_paths: db/queue_migrate
-  cable:
-    <<: *primary_production
-    database: api_production_cable
-    migrations_paths: db/cable_migrate
+  <<: *default
+  database: eventa_production
+  username: eventa
+  password: <%= ENV["EVENTA_DATABASE_PASSWORD"] %>
+
+cucumber:
+  <<: *test
