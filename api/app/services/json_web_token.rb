@@ -20,13 +20,26 @@ class JsonWebToken
       payload[:iat] = now               # 発行時刻
       payload[:nbf] = now               # 有効開始時刻
       payload[:jti] = SecureRandom.uuid # 一意のトークンID
-      payload[:exp] = exp.from_now.to_i # 有効期限
+
+      # expがTimeオブジェクトまたは数値なら適切に処理（修正）
+      payload[:exp] = if exp.is_a?(ActiveSupport::Duration)
+        exp.from_now.to_i
+      elsif exp.is_a?(Time)
+        exp.to_i
+      elsif exp.is_a?(Numeric)
+        # 負の値なら過去の時間、正の値なら未来の時間を表す
+        (Time.current + exp).to_i
+      else
+        DEFAULT_EXP.from_now.to_i
+      end
 
       JWT.encode(payload, SECRET, "HS256")
     end
 
     # JWTトークンのデコード
     def decode(token)
+      return nil if token.blank?  # 追加: tokenがnilや空文字の場合に早期リターン
+
       # verify_issでiss（発行者）を検証
       # verify_audienceでaud（対象者）を検証
       # verify_iatで発行時刻を検証
