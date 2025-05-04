@@ -5,17 +5,28 @@ import axios from 'axios';
 import Router from 'next/router';
 import { logout } from './auth';
 
-// API のベース URL を環境変数から取得
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+// API パスのプレフィックス
+const API_PATH_PREFIX = '/api/v1';
 
 // APIクライアントの作成
 const apiClient = axios.create({
-  baseURL: API_BASE_URL,
+  // 相対パスを使用（Next.jsのプロキシ経由でアクセス）
+  baseURL: API_PATH_PREFIX,
   headers: {
     'Content-Type': 'application/json',
   },
   withCredentials: true, // クッキーを含める設定
 });
+
+// デバッグ用コンソール出力
+if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+  console.log('API Client設定:', {
+    環境変数: process.env.NEXT_PUBLIC_API_URL,
+    相対パス: true,
+    パスプレフィックス: API_PATH_PREFIX,
+    最終URL: apiClient.defaults.baseURL
+  });
+}
 
 // リクエスト時に認証トークンを設定
 apiClient.interceptors.request.use(
@@ -39,6 +50,19 @@ apiClient.interceptors.response.use(
       logout();
       Router.push('/login');
     }
+    
+    // ネットワークエラーの詳細ログ
+    if (error.message === 'Network Error') {
+      console.error('APIネットワークエラー:', {
+        baseURL: apiClient.defaults.baseURL,
+        requestUrl: error.config?.url,
+        fullUrl: `${apiClient.defaults.baseURL}/${error.config?.url}`.replace(/\/+/g, '/'),
+        method: error.config?.method,
+        headers: error.config?.headers,
+        data: error.config?.data
+      });
+    }
+    
     return Promise.reject(error);
   }
 );
@@ -50,7 +74,14 @@ apiClient.interceptors.response.use(
  * @returns {Promise<any>} レスポンスデータ
  */
 export async function fetchApi(endpoint, options = {}) {
-  const url = `${API_BASE_URL}${endpoint}`;
+  // 相対パスで指定（baseURLが使われる）
+  const url = endpoint.startsWith('/') 
+    ? `${apiClient.defaults.baseURL}${endpoint}` 
+    : `${apiClient.defaults.baseURL}/${endpoint}`;
+
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`API fetchリクエスト: ${url}`);
+  }
 
   // デフォルトのヘッダーを設定
   const headers = {

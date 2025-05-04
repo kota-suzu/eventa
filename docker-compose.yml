@@ -50,6 +50,13 @@ services:
       - yarn_cache:/home/vscode/.cache/yarn
     tty: true  # TTYを有効化（対話コマンドのサポート）
     stdin_open: true  # STDINを有効化
+    # メモリ制限設定 - RSpecのテスト実行時に十分なメモリを確保
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
 
   # フロントエンド開発サーバー
   frontend:
@@ -63,7 +70,7 @@ services:
       - frontend_node_modules:/app/node_modules
     environment:
       - NODE_ENV=development
-      - NEXT_PUBLIC_API_URL=http://localhost:3001/api/v1
+      - NEXT_PUBLIC_API_URL=http://api:3000
     command: npm run dev
     depends_on:
       - api
