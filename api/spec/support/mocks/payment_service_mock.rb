@@ -71,25 +71,32 @@ module Mocks
     end
   end
 
-  class PaymentService
+  class PaymentServiceMock
     class << self
       # テスト環境用のモック設定
       def setup
+        # 既にモック化されていれば何もしない
+        return if @already_mocked
+
         # 本番のPaymentServiceクラスをバックアップ
         if Object.const_defined?(:PaymentService) && !Object.const_defined?(:OriginalPaymentService)
-          Object.const_set(:OriginalPaymentService, PaymentService)
+          Object.const_set(:OriginalPaymentService, ::PaymentService)
         end
 
         # 事前定義したモッククラスをPaymentServiceとして設定
+        Object.send(:remove_const, :PaymentService) if Object.const_defined?(:PaymentService)
         Object.const_set(:PaymentService, Mocks::MockPaymentService)
+        @already_mocked = true
       end
 
       # モック解除
       def teardown
         # バックアップがあれば元に戻す
-        if Object.const_defined?(:OriginalPaymentService)
+        if Object.const_defined?(:OriginalPaymentService) && @already_mocked
+          Object.send(:remove_const, :PaymentService) if Object.const_defined?(:PaymentService)
           Object.const_set(:PaymentService, OriginalPaymentService)
           Object.send(:remove_const, :OriginalPaymentService)
+          @already_mocked = false
         end
       end
     end

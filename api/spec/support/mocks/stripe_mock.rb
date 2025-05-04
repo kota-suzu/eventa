@@ -3,7 +3,7 @@
 # Stripeのモッククラス
 # テスト時にStripe API呼び出しをモック化するためのクラス
 module Mocks
-  class Stripe
+  class StripeMock
     class << self
       # テスト環境用のモック設定
       def setup
@@ -72,6 +72,7 @@ module Mocks
           end
 
           # モジュールをセット
+          Object.send(:remove_const, :Stripe) if defined?(::Stripe)
           Object.const_set(:Stripe, stripe_mock)
 
           # 既にモック化されたことを記録
@@ -82,6 +83,7 @@ module Mocks
       # モック解除
       def teardown
         if defined?(OriginalStripe) && @already_mocked
+          Object.send(:remove_const, :Stripe) if defined?(::Stripe)
           Object.const_set(:Stripe, OriginalStripe)
           Object.send(:remove_const, :OriginalStripe)
           @already_mocked = false
