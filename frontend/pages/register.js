@@ -200,14 +200,18 @@ const Register = () => {
       });
       
       if (result.ok) {
+        // デバッグログ追加
+        console.log('登録成功:', result.user);
         setSuccessMessage('登録が完了しました！リダイレクトします...');
+        
         // 成功メッセージを表示してから遷移
         setTimeout(() => {
-          // ユーザータイプに応じてリダイレクト
-          const redirectPath = formData.role === 'organizer' ? '/dashboard' : '/events';
-          router.push(redirectPath);
+          console.log('リダイレクト開始...', formData.role);
+          // すべてのロールで統一して /dashboard にリダイレクト
+          router.push('/dashboard');
         }, 1500);
       } else {
+        console.error('登録失敗:', result.message);
         setServerError(result.message);
       }
     } catch (err) {

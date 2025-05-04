@@ -61,7 +61,10 @@ export const AuthProvider = ({ children }) => {
   const register = async (userData) => {
     try {
       setLoading(true);
+      console.log('登録リクエスト送信データ:', userData);
       const response = await api.post('/auth/register', userData);
+      
+      console.log('登録レスポンス:', response.status, response.data);
       
       if (response.status === 201) {
         const { user, token } = response.data;
@@ -79,9 +82,10 @@ export const AuthProvider = ({ children }) => {
       return { ok: false, message: '登録処理に失敗しました' };
     } catch (error) {
       console.error('Registration failed:', error);
+      console.error('Error details:', error.response?.data);
       return { 
         ok: false, 
-        message: error.response?.data?.errors?.join(', ') || '登録処理中にエラーが発生しました' 
+        message: error.response?.data?.error || error.response?.data?.errors?.join(', ') || '登録処理中にエラーが発生しました' 
       };
     } finally {
       setLoading(false);
