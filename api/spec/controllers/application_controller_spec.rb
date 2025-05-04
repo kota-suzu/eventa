@@ -27,7 +27,7 @@ RSpec.describe ApplicationController, type: :controller do
 
     context "有効なトークンがある場合" do
       before do
-        token = JsonWebToken.encode({user_id: user.id})
+        token = JsonWebToken.encode({user_id: user.id}, 24.hours)
         request.headers["Authorization"] = "Bearer #{token}"
       end
 
@@ -64,7 +64,7 @@ RSpec.describe ApplicationController, type: :controller do
 
     context "存在しないユーザーIDのトークンの場合" do
       before do
-        token = JsonWebToken.encode({user_id: 99999})
+        token = JsonWebToken.encode({user_id: 99999}, 24.hours)
         request.headers["Authorization"] = "Bearer #{token}"
       end
 
