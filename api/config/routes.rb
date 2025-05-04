@@ -26,6 +26,7 @@ Rails.application.routes.draw do
       # イベント関連
       resources :events, only: [:index, :show] do
         resources :tickets, only: [:index], controller: "event_tickets"
+        resources :ticket_types
       end
 
       # ユーザー関連

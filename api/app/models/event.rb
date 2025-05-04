@@ -3,6 +3,7 @@
 class Event < ApplicationRecord
   belongs_to :user
   has_many :tickets, dependent: :destroy
+  has_many :ticket_types, dependent: :destroy
   has_many :reservations, through: :tickets
 
   validates :title, presence: true
@@ -12,6 +13,16 @@ class Event < ApplicationRecord
   validates :capacity, numericality: {greater_than: 0}
   validate :end_at_after_start_at
   validate :capacity_limit
+
+  # 販売中のチケットタイプを取得
+  def on_sale_ticket_types
+    ticket_types.on_sale
+  end
+
+  # 販売可能なチケットタイプを取得（時間的に有効なもの）
+  def active_ticket_types
+    ticket_types.active
+  end
 
   private
 

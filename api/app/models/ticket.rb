@@ -2,6 +2,7 @@
 
 class Ticket < ApplicationRecord
   belongs_to :event
+  belongs_to :ticket_type, optional: true
   has_many :reservations, dependent: :restrict_with_exception
 
   validates :title, presence: true
@@ -14,6 +15,7 @@ class Ticket < ApplicationRecord
   }
 
   before_validation :set_default_available_quantity, on: :create
+  before_validation :set_from_ticket_type, if: -> { ticket_type.present? }
 
   class InsufficientQuantityError < StandardError; end
 
@@ -34,6 +36,12 @@ class Ticket < ApplicationRecord
 
   def set_default_available_quantity
     self.available_quantity ||= quantity if quantity
+  end
+
+  def set_from_ticket_type
+    self.title = ticket_type.name if title.blank?
+    self.description = ticket_type.description if description.blank?
+    self.price = ticket_type.price_cents / 100 if price.blank?
   end
 
   def check_quantity_available(quantity)

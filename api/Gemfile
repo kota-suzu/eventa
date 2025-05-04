@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 source "https://rubygems.org"
 
 # Bundle edge Rails instead: gem "rails", github: "rails/rails", branch: "main"
@@ -44,6 +46,7 @@ gem "rack-cors"
 
 # バックグラウンドジョブ処理用
 gem "sidekiq"
+gem "sidekiq-scheduler", "~> 5.0" # ジョブスケジューリング
 
 # データベーススキーマ管理ツール
 gem "ridgepole", "~> 3.0.1"
