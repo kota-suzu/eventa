@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 module Api
   module V1
-    class AuthController < ApplicationController
+    class AuthsController < ApplicationController
       # 認証をスキップ - 新規登録とログインは認証不要
       skip_before_action :authenticate_user, only: [:register, :login, :refresh_token]
 
@@ -114,7 +116,7 @@ module Api
           params.require(:auth).permit(:name, :email, :password, :password_confirmation, :bio, :role)
         else
           # 従来通りのパラメータ形式
-          params.require(:user).permit(:name, :email, :password, :password_confirmation, :bio, :role)
+          params.permit(:name, :email, :password, :password_confirmation, :bio, :role)
         end
       end
 

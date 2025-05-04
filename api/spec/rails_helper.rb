@@ -7,6 +7,15 @@ abort("The Rails environment is running in production mode!") if Rails.env.produ
 require "rspec/rails"
 # Add additional requires below this line. Rails is not loaded until this point!
 require "factory_bot_rails"
+require "shoulda/matchers"
+
+# Shoulda Matchersの設定 - ファイル先頭に移動して確実に初期化
+Shoulda::Matchers.configure do |config|
+  config.integrate do |with|
+    with.test_framework :rspec
+    with.library :rails
+  end
+end
 
 # Requires supporting ruby files with custom matchers and macros, etc, in
 # spec/support/ and its subdirectories. Files matching `spec/**/*_spec.rb` are
@@ -40,22 +49,22 @@ RSpec.configure do |config|
   # If you're not using ActiveRecord, or you'd prefer not to run each of your
   # examples within a transaction, remove the following line or assign false
   # instead of true.
-  # DatabaseCleaner を採用するので false にする
-  config.use_transactional_fixtures = false
+  # トランザクション使用に戻して高速化
+  config.use_transactional_fixtures = true
 
   # FactoryBotの設定
   config.include FactoryBot::Syntax::Methods
 
-  # テスト実行前に一度だけファクトリを定義
-  config.before(:suite) do
-    puts "テスト開始時にインメモリでファクトリを定義します"
-
-    # 既存のファクトリをクリア（重複登録を防止）
-    if FactoryBot.respond_to?(:factories)
-      FactoryBot.factories.clear
+  # ファクトリの初期化は一度だけ実行
+  unless defined?(FACTORY_BOT_LOADED)
+    config.before(:suite) do
+      puts "FactoryBot初期化設定が適用されました"
     end
 
-    # 明示的にファクトリを定義
+    # 既存のファクトリをクリア
+    FactoryBot.factories.clear if FactoryBot.factories.collect(&:name).include?(:user)
+
+    # ファクトリを明示的に定義
     FactoryBot.define do
       factory :user do
         sequence(:email) { |n| "user#{n}@example.com" }
@@ -97,6 +106,24 @@ RSpec.configure do |config|
         association :ticket
       end
     end
+
+    FACTORY_BOT_LOADED = true
+  end
+
+  # DatabaseCleanerの設定を単純化
+  config.before(:suite) do
+    DatabaseCleaner.strategy = :transaction
+    DatabaseCleaner.clean_with(:truncation)
+  end
+
+  # 並行テスト用のみ特別戦略を適用
+  config.before(:each, :concurrent) do
+    DatabaseCleaner.strategy = :truncation
+  end
+
+  config.after(:each, :concurrent) do
+    # テスト後は元のtransaction戦略に戻す
+    DatabaseCleaner.strategy = :transaction
   end
 
   # テストパフォーマンス改善: CIモードではプロファイリングを無効化
@@ -124,14 +151,4 @@ RSpec.configure do |config|
   config.filter_rails_from_backtrace!
   # arbitrary gems may also be filtered via:
   # config.filter_gems_from_backtrace("gem name")
-end
-
-# Shoulda Matchersの設定
-if defined?(Shoulda::Matchers)
-  Shoulda::Matchers.configure do |config|
-    config.integrate do |with|
-      with.test_framework :rspec
-      with.library :rails
-    end
-  end
 end

@@ -14,7 +14,7 @@ Rails.application.routes.draw do
   # API エンドポイント
   namespace :api do
     namespace :v1 do
-      resource :auth, only: [] do
+      resource :auths, only: [] do
         post :register
         post :login
         post :refresh, action: :refresh_token
