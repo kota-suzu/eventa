@@ -40,12 +40,12 @@ const customJestConfig = {
 
   // JSXファイルも処理対象に含める
   moduleFileExtensions: ['js', 'jsx', 'json'],
-  
+
   // テスト環境の環境変数を設定
   testEnvironmentOptions: {
     customExportConditions: ['node', 'node-addons'],
   },
-  
+
   // テスト環境の環境変数
   setupFiles: ['<rootDir>/tests/setEnvVars.js'],
 };

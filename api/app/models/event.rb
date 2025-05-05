@@ -6,6 +6,12 @@ class Event < ApplicationRecord
   has_many :ticket_types, dependent: :destroy
   has_many :reservations, through: :tickets
 
+  # 後方互換性のためのエイリアス
+  alias_attribute :name, :title
+  alias_attribute :start_date, :start_at
+  alias_attribute :end_date, :end_at
+  alias_attribute :location, :venue
+
   validates :title, presence: true
   validates :start_at, presence: true
   validates :end_at, presence: true
