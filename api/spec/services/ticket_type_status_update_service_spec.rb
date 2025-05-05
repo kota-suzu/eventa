@@ -3,18 +3,26 @@
 require "rails_helper"
 
 RSpec.describe TicketTypeStatusUpdateService, type: :service do
+  # すべてのテストで共有するイベントを用意
+  before(:all) do
+    # データベースをクリーンアップ
+    DatabaseCleaner.clean_with(:truncation)
+    # イベントを作成（一意のユーザーを強制的に作成）
+    @shared_event = create(:event, user: create(:user, email: "shared_event_#{Time.now.to_i}@example.com"))
+  end
+
+  # 各テスト後にデータをクリーンアップ
+  after(:each) do
+    DatabaseCleaner.clean_with(:transaction)
+  end
+
   describe "#update_status_based_on_time" do
     let(:service) { described_class.new }
-
-    before do
-      # モックを準備するのではなく、Seeds経由で取得
-      @event = Seeds.get_test_event
-    end
 
     it "販売開始日時を迎えた準備中のチケットを販売中に更新する" do
       # 特定のテスト用データを用意
       draft_ticket = create(:ticket_type, :minimal,
-        event: @event,
+        event: @shared_event,
         status: "draft",
         sales_start_at: 1.hour.ago,
         sales_end_at: 1.day.from_now)
@@ -31,7 +39,7 @@ RSpec.describe TicketTypeStatusUpdateService, type: :service do
 
     it "販売終了日時を過ぎた販売中のチケットを販売終了に更新する" do
       on_sale_ticket = create(:ticket_type, :minimal,
-        event: @event,
+        event: @shared_event,
         status: "on_sale",
         sales_start_at: 2.days.ago,
         sales_end_at: 1.hour.ago)
@@ -46,21 +54,17 @@ RSpec.describe TicketTypeStatusUpdateService, type: :service do
   describe "#update_status_based_on_stock" do
     let(:service) { described_class.new }
 
-    before do
-      @event = Seeds.get_test_event
-    end
-
     it "在庫がなくなった販売中のチケットを売切れに更新する" do
       # 販売中で在庫0のチケットを用意
       on_sale_ticket = create(:ticket_type, :minimal,
-        event: @event,
+        event: @shared_event,
         status: "on_sale",
         quantity: 10,
         sales_start_at: 1.day.ago,
         sales_end_at: 1.day.from_now)
 
-      # チケットを全て購入して在庫を0にする
-      create(:ticket, ticket_type: on_sale_ticket, quantity: 10)
+      # 明示的にイベントを設定し、ユーザー作成の連鎖を避ける
+      create(:ticket, ticket_type: on_sale_ticket, event: @shared_event, quantity: 10)
 
       # 確認
       expect(on_sale_ticket.remaining_quantity).to eq(0)
@@ -73,14 +77,14 @@ RSpec.describe TicketTypeStatusUpdateService, type: :service do
 
     it "在庫があるチケットは更新しない" do
       on_sale_ticket = create(:ticket_type, :minimal,
-        event: @event,
+        event: @shared_event,
         status: "on_sale",
         quantity: 10,
         sales_start_at: 1.day.ago,
         sales_end_at: 1.day.from_now)
 
-      # 一部だけ購入して在庫を減らす
-      create(:ticket, ticket_type: on_sale_ticket, quantity: 5)
+      # 明示的にイベントを設定し、ユーザー作成の連鎖を避ける
+      create(:ticket, ticket_type: on_sale_ticket, event: @shared_event, quantity: 5)
 
       # 確認
       expect(on_sale_ticket.remaining_quantity).to eq(5)

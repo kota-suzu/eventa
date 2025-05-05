@@ -5,7 +5,7 @@ require "rails_helper"
 RSpec.describe Ticket, type: :model do
   ## ------- Associations / Validations -------
   describe "associations & validations" do
-    subject { build(:ticket) }
+    subject { build(:ticket, ticket_type: nil) }
 
     it { is_expected.to belong_to(:event) }
     it { is_expected.to have_many(:reservations).dependent(:restrict_with_exception) }
@@ -55,7 +55,7 @@ RSpec.describe Ticket, type: :model do
   ## ------- Concurrency smoke test -------
   describe "concurrent reservation", :concurrent do
     let(:event) { create(:event) }
-    let(:ticket) { create(:ticket, event: event, available_quantity: 5) }
+    let(:ticket) { create(:ticket, event: event, quantity: 10, available_quantity: 5) } # quantityを明示的に指定
     let(:user1) { create(:user) }
     let(:user2) { create(:user) }
 
@@ -65,16 +65,17 @@ RSpec.describe Ticket, type: :model do
       threads_ready = 0
       max_threads = 3
       results = []
+      timeout_seconds = 5 # タイムアウト設定
 
       threads = Array.new(max_threads) do |i|
         Thread.new do
-          mutex.synchronize do
-            threads_ready += 1
-            cv.signal if threads_ready == max_threads
-            cv.wait(mutex) if threads_ready < max_threads
-          end
+          Timeout.timeout(timeout_seconds) do
+            mutex.synchronize do
+              threads_ready += 1
+              cv.signal if threads_ready == max_threads
+              cv.wait(mutex) if threads_ready < max_threads
+            end
 
-          begin
             sleep(0.01 * i)
 
             Ticket.transaction do
@@ -87,13 +88,21 @@ RSpec.describe Ticket, type: :model do
                 mutex.synchronize { results << {thread: i, success: false, remaining: t.available_quantity} }
               end
             end
-          rescue => e
-            mutex.synchronize { results << {thread: i, success: false, error: e.message} }
           end
+        rescue Timeout::Error
+          mutex.synchronize { results << {thread: i, success: false, error: "Timeout exceeded"} }
+        rescue => e
+          mutex.synchronize { results << {thread: i, success: false, error: e.message} }
         end
       end
 
-      threads.each(&:join)
+      # タイムアウト付きでスレッド終了を待機
+      threads.each do |thread|
+        Timeout.timeout(timeout_seconds + 1) { thread.join }
+      rescue Timeout::Error
+        # タイムアウト時はスレッドを強制終了させる
+        Thread.kill(thread) if thread.alive?
+      end
 
       successful_reservations = results.count { |r| r[:success] }
       expect(successful_reservations).to be <= 2

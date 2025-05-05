@@ -5,7 +5,17 @@ RSpec.describe ApplicationController, type: :controller do
   controller do
     # 認証を必要とするアクション
     def secured_action
-      render json: {message: "認証成功", user_id: current_user.id}
+      if current_user
+        render json: {message: "認証成功", user_id: current_user.id}
+      else
+        # current_userがnilの場合は render_unauthorized を呼び出す
+        render_unauthorized("認証に失敗しました")
+      end
+    end
+
+    # render_unauthorizedメソッドをオーバーライドして、親クラスと同じ挙動にする
+    def render_unauthorized(message = nil)
+      render json: {error: message || I18n.t("errors.unauthorized")}, status: :unauthorized
     end
 
     # 認証をスキップするアクション

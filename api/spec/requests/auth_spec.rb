@@ -54,7 +54,8 @@ RSpec.describe "Auth", type: :request do
   end
 
   describe "POST /api/v1/auths/login" do
-    let!(:user) { create(:user, email: "test@example.com", password: "password123") }
+    # パスワード確認を明示的に設定
+    let!(:user) { create(:user, email: "test@example.com", password: "password123", password_confirmation: "password123") }
 
     context "with valid credentials" do
       it "returns a success response" do

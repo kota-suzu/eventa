@@ -40,7 +40,7 @@ RSpec.describe User, type: :model do
   end
 
   describe ".authenticate" do
-    let!(:test_user) { create(:user, email: "auth_test@example.com", password: "password123") }
+    let!(:test_user) { create(:user, email: "auth_test@example.com", password: "password123", password_confirmation: "password123") }
 
     it "returns user when credentials are valid" do
       result = User.authenticate("auth_test@example.com", "password123")
@@ -54,7 +54,6 @@ RSpec.describe User, type: :model do
     end
 
     it "returns nil when password is invalid" do
-      allow_any_instance_of(User).to receive(:authenticate).and_return(nil)
       result = User.authenticate("auth_test@example.com", "wrongpassword")
       expect(result).to be_nil
     end

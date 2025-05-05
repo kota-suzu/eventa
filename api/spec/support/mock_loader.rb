@@ -9,8 +9,8 @@ module MockLoader
       ensure_mock_directory_exists
 
       # 各モックをセットアップ
-      Mocks::ReservationService.setup if defined?(Mocks::ReservationService)
-      Mocks::PaymentService.setup if defined?(Mocks::PaymentService)
+      Mocks::ReservationServiceMock.setup if defined?(Mocks::ReservationServiceMock)
+      Mocks::PaymentServiceMock.setup if defined?(Mocks::PaymentServiceMock)
       Mocks::Stripe.setup if defined?(Mocks::Stripe)
 
       # その他必要なモックがあれば追加
@@ -18,8 +18,8 @@ module MockLoader
 
     # すべてのモックをクリーンアップ
     def teardown_all
-      Mocks::ReservationService.teardown if defined?(Mocks::ReservationService)
-      Mocks::PaymentService.teardown if defined?(Mocks::PaymentService)
+      Mocks::ReservationServiceMock.teardown if defined?(Mocks::ReservationServiceMock)
+      Mocks::PaymentServiceMock.teardown if defined?(Mocks::PaymentServiceMock)
       Mocks::Stripe.teardown if defined?(Mocks::Stripe)
 
       # その他必要なモックがあれば追加
