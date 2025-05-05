@@ -17,6 +17,7 @@ class User < ApplicationRecord
   has_many :events, dependent: :destroy  # 主催者が削除されたらイベントも削除
   has_many :participants, dependent: :destroy
   has_many :participating_events, through: :participants, source: :event
+  has_many :reservations, dependent: :destroy  # ユーザーが削除されたら予約も削除
 
   # クラスメソッド：メールアドレスとパスワードによる認証(簡略化)
   def self.authenticate(email, password)

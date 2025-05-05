@@ -3,11 +3,6 @@
 require "rails_helper"
 
 RSpec.describe "Api::V1::TicketTypes", type: :request do
-  # すべてのテストをスキップ
-  before(:all) do
-    skip("TicketTypesControllerのテストは一時的にスキップします")
-  end
-
   let(:user) { create(:user, role: :organizer) }
   let(:event) { create(:event, user: user) }
   let(:headers) { {"X-Test-User-Id" => user.id.to_s} }
