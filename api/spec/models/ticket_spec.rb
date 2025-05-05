@@ -110,5 +110,83 @@ RSpec.describe Ticket, type: :model do
       ticket.reload
       expect(ticket.available_quantity).to eq(5 - (successful_reservations * 2))
     end
+
+    it "allows only available quantity to be reserved" do
+      # 同時予約シミュレーション用の設定
+      reservation_threads = []
+      mutex = Mutex.new
+      successful_reservations = 0
+      failed_reservations = 0
+
+      # 10の予約リクエストを同時に処理（利用可能は5のみ）
+      10.times do |i|
+        reservation_threads << Thread.new do
+          create(:user, email: "concurrent_user_#{i}@example.com")
+
+          begin
+            # トランザクションを使って予約を試みる
+            ActiveRecord::Base.transaction do
+              result = Ticket.reserve_with_lock(ticket.id, 1)
+
+              mutex.synchronize do
+                successful_reservations += 1 if result
+              end
+            end
+          rescue Ticket::InsufficientQuantityError
+            mutex.synchronize do
+              failed_reservations += 1
+            end
+          end
+        end
+      end
+
+      # 全スレッドの完了を待つ
+      reservation_threads.each(&:join)
+
+      # 結果検証
+      expect(successful_reservations).to eq(5) # 利用可能数と同じ
+      expect(failed_reservations).to eq(5)     # 残りは失敗するはず
+
+      # DBから再読み込みして確認
+      ticket.reload
+      expect(ticket.available_quantity).to eq(0) # すべて予約済み
+    end
+
+    it "correctly handles advisory locks for concurrent operations", :concurrent do
+      # アドバイザリーロック競合のテスト
+      lock_key = ticket.id
+      lock_acquired_count = 0
+      lock_failed_count = 0
+      threads = []
+
+      mutex = Mutex.new
+
+      # 5つのスレッドで同時にロック取得を試みる
+      5.times do
+        threads << Thread.new do
+          connection = ActiveRecord::Base.connection
+
+          # アドバイザリーロックを試みる（タイムアウト1秒）
+          acquired = connection.get_advisory_lock(lock_key, 1.0)
+
+          mutex.synchronize do
+            if acquired
+              lock_acquired_count += 1
+              # ロック取得できたら少し待ってからリリース
+              sleep(0.1)
+              connection.release_advisory_lock(lock_key)
+            else
+              lock_failed_count += 1
+            end
+          end
+        end
+      end
+
+      threads.each(&:join)
+
+      # 同時に複数のスレッドがロックを取得できないはず
+      expect(lock_acquired_count).to be > 0
+      expect(lock_acquired_count + lock_failed_count).to eq(5)
+    end
   end
 end

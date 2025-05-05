@@ -1,0 +1,16 @@
+---
+paths:
+  - 'app'
+  - 'lib'
+exclude_paths:
+  - 'vendor/**/*'
+  - 'config/**/*'
+  - 'db/**/*'
+  - 'spec/**/*'
+  - 'test/**/*'
+formats:
+  - html
+  - json
+minimum_score: 90
+path_patterns:
+  - 'app/**/*.rb'

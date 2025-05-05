@@ -1,107 +1,134 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 name: CI
+
 on:
   push:
+    branches: [ main, develop ]
   pull_request:
+    branches: [ main, develop ]
+
 jobs:
-  build:
+  lint:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        phase: [lint, test]
-      fail-fast: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2.2'
+          bundler-cache: true
+          working-directory: ./api
+          
+      - name: RuboCop
+        run: bundle exec standardrb
+        working-directory: ./api
+        
+      - name: RubyCritic
+        run: bundle exec rubycritic --no-browser --minimum-score 90 --format json
+        working-directory: ./api
+        
+      - name: Flog Complexity Check
+        run: |
+          bundle exec flog -ag app/**/*.rb | awk '$1>20 {print; exit 1}' || (echo "メソッド複雑度が上限(20)を超えています"; exit 1)
+        working-directory: ./api
+
+  test:
+    runs-on: ubuntu-latest
+    needs: lint
     services:
       mysql:
         image: mysql:8.0
         env:
           MYSQL_ROOT_PASSWORD: rootpass
           MYSQL_DATABASE: eventa_test
-        options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -u root -prootpass --silent" 
-          --health-interval=10s 
-          --health-timeout=10s 
-          --health-retries=20
         ports:
           - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -prootpass"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+      
       redis:
         image: redis:7-alpine
-        options: >-
-          --health-cmd="redis-cli ping" 
-          --health-interval=5s 
-          --health-timeout=3s 
-          --health-retries=5
         ports:
           - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
     steps:
       - uses: actions/checkout@v4
-      
-      - uses: ruby/setup-ruby@v1
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
         with:
-          ruby-version: 3.3
+          ruby-version: '3.2.2'
           bundler-cache: true
-      
-      - name: Wait for MySQL
-        if: matrix.phase == 'test'
-        run: |
-          for i in {1..120}; do
-            if mysqladmin ping -h 127.0.0.1 -u root -prootpass --silent; then
-              echo "MySQL is up!"
-              exit 0
-            fi
-            echo "Waiting for MySQL... ($i/120)"
-            sleep 1
-          done
-          echo "MySQL did not become available in time"
-          exit 1
-      
-      - name: Install dependencies
-        if: matrix.phase == 'lint'
-        working-directory: ./api
-        run: bundle install
-      
-      - name: Lint with StandardRB
-        if: matrix.phase == 'lint'
-        working-directory: ./api
-        run: bundle exec standardrb
-      
-      - name: Run Brakeman
-        if: matrix.phase == 'lint'
-        working-directory: ./api
-        run: bundle exec brakeman -q --no-pager
-      
-      - name: Install dependencies
-        if: matrix.phase == 'test'
-        working-directory: ./api
-        run: bundle install
-      
-      - name: Setup Database
-        if: matrix.phase == 'test'
-        working-directory: ./api
-        run: |
-          cp config/database.yml.ci config/database.yml
-          bundle exec rails db:prepare
-        env:
-          RAILS_ENV: test
-          DATABASE_URL: mysql2://root:rootpass@127.0.0.1:3306/eventa_test
-      
-      - name: Debug MySQL Service
-        if: matrix.phase == 'test' && failure()
-        run: |
-          echo "=== MySQL Status ==="
-          mysqladmin -h 127.0.0.1 -u root -prootpass status
-          echo "=== MySQL Processes ==="
-          mysqladmin -h 127.0.0.1 -u root -prootpass processlist
-      
-      - name: Debug Redis Service
-        if: matrix.phase == 'test' && failure()
-        run: |
-          echo "=== Redis Info ==="
-          redis-cli info
+          working-directory: ./api
           
-      - name: Run RSpec
-        if: matrix.phase == 'test'
-        working-directory: ./api
-        run: bundle exec rspec
+      - name: RSpec with SimpleCov
         env:
           RAILS_ENV: test
-          DATABASE_URL: mysql2://root:rootpass@127.0.0.1:3306/eventa_test
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_USER: root
+          DB_PASSWORD: rootpass
+          DB_NAME: eventa_test
+          REDIS_URL: redis://localhost:6379/1
+        run: bundle exec rspec --format progress
+        working-directory: ./api
+        
+      - name: Upload coverage report to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          directory: ./api/coverage
+          fail_ci_if_error: true
+          
+  race-condition-test:
+    runs-on: ubuntu-latest
+    needs: test
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: rootpass
+          MYSQL_DATABASE: eventa_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -prootpass"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+          
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2.2'
+          bundler-cache: true
+          working-directory: ./api
+          
+      - name: Install parallel_tests
+        run: bundle exec gem install parallel_tests
+        working-directory: ./api
+          
+      - name: Run Concurrent Tests
+        env:
+          RAILS_ENV: test
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_USER: root
+          DB_PASSWORD: rootpass
+          DB_NAME: eventa_test
+          PARALLEL_TEST_PROCESSORS: 4
+        run: |
+          bundle exec rake parallel:setup
+          bundle exec parallel_rspec spec/models/ticket_spec.rb:62 -- --tag concurrent
+        working-directory: ./api

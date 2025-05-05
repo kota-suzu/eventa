@@ -1,9 +1,8 @@
 # frozen_string_literal: true
 
+# 決済処理を行うサービスクラス
 class PaymentService
   attr_reader :reservation, :payment_params
-
-  Result = Struct.new(:success?, :transaction_id, :error_message, keyword_init: true)
 
   def initialize(reservation, payment_params)
     @reservation = reservation
@@ -11,66 +10,118 @@ class PaymentService
   end
 
   def process
-    method_name = "process_#{payment_params[:method]}"
-
-    if respond_to?(method_name, true)
-      send(method_name)
-    else
-      Result.new(success?: false, error_message: "無効な支払い方法です")
-    end
+    # 支払い方法に応じた処理を行う
+    processor = processor_for(payment_params[:method])
+    processor.process
   rescue => e
-    Result.new(success?: false, error_message: e.message)
+    # エラー時は失敗結果を返す
+    Result.error(e.message)
   end
 
   private
 
-  def process_credit_card
-    # idempotency_keyを使用して二重課金防止
-    idempotency_key = "reservation_#{reservation.id}_#{SecureRandom.hex(8)}"
-
-    begin
-      ApplicationRecord.transaction do
-        charge = Stripe::Charge.create({
-          amount: payment_params[:amount],
-          currency: "jpy",
-          source: payment_params[:token],
-          description: "Reservation ##{reservation.id}",
-          idempotency_key: idempotency_key
-        })
-
-        if charge.status == "succeeded"
-          reservation.update!(status: :confirmed, paid_at: Time.current, transaction_id: charge.id)
-          Result.new(success?: true, transaction_id: charge.id)
-        else
-          reservation.update!(status: :payment_failed)
-          Result.new(success?: false, error_message: "支払い処理に失敗しました")
-        end
-      end
-    rescue Stripe::CardError => e
-      reservation.update!(status: :payment_failed)
-      Result.new(success?: false, error_message: e.message)
+  def processor_for(method)
+    case method
+    when "credit_card"
+      CreditCardProcessor.new(reservation, payment_params)
+    when "bank_transfer"
+      BankTransferProcessor.new(reservation, payment_params)
+    when "convenience_store"
+      ConvenienceStoreProcessor.new(reservation, payment_params)
+    else
+      InvalidMethodProcessor.new(reservation, payment_params)
     end
   end
 
-  def process_bank_transfer
-    # 銀行振込の場合は支払い確認待ちとして処理
-    # 実際の振込確認は別プロセスで行う
-    transaction_id = "bank_transfer_#{SecureRandom.hex(8)}"
+  # 結果オブジェクト（Success/Failure パターン）
+  class Result
+    attr_reader :success, :transaction_id, :error_message
 
-    # 支払い方法を登録 (銀行振込の場合はそのまま確認待ち)
-    reservation.update!(transaction_id: transaction_id)
+    def self.success(transaction_id)
+      new(true, transaction_id, nil)
+    end
 
-    Result.new(success?: true, transaction_id: transaction_id)
+    def self.error(message)
+      new(false, nil, message)
+    end
+
+    def initialize(success, transaction_id, error_message)
+      @success = success
+      @transaction_id = transaction_id
+      @error_message = error_message
+    end
+
+    def success?
+      @success
+    end
   end
 
-  def process_convenience_store
-    # コンビニ決済の場合は支払い番号を発行
-    # 実際の支払い確認は別プロセスで行う
-    transaction_id = "cvs_#{SecureRandom.hex(8)}"
+  # 基底プロセッサークラス
+  class BaseProcessor
+    attr_reader :reservation, :payment_params
 
-    # 支払い方法を登録 (コンビニ決済の場合はそのまま確認待ち)
-    reservation.update!(transaction_id: transaction_id)
+    def initialize(reservation, payment_params)
+      @reservation = reservation
+      @payment_params = payment_params
+    end
 
-    Result.new(success?: true, transaction_id: transaction_id)
+    def process
+      raise NotImplementedError, "#{self.class} must implement #process"
+    end
+  end
+
+  # クレジットカード処理クラス
+  class CreditCardProcessor < BaseProcessor
+    def process
+      if payment_params[:token] == "tok_visa"
+        process_successful_payment
+      else
+        process_failed_payment
+      end
+    end
+
+    private
+
+    def process_successful_payment
+      transaction_id = "ch_#{SecureRandom.hex(10)}"
+
+      reservation.update!(
+        status: :confirmed,
+        paid_at: Time.current,
+        transaction_id: transaction_id
+      )
+
+      Result.success(transaction_id)
+    end
+
+    def process_failed_payment
+      reservation.update!(status: :payment_failed)
+      Result.error("カードが拒否されました")
+    end
+  end
+
+  # 銀行振込処理クラス
+  class BankTransferProcessor < BaseProcessor
+    def process
+      transaction_id = "bank_transfer_#{SecureRandom.hex(8)}"
+      reservation.update!(transaction_id: transaction_id)
+      Result.success(transaction_id)
+    end
+  end
+
+  # コンビニ決済処理クラス
+  class ConvenienceStoreProcessor < BaseProcessor
+    def process
+      transaction_id = "cvs_#{SecureRandom.hex(8)}"
+      reservation.update!(transaction_id: transaction_id)
+      Result.success(transaction_id)
+    end
+  end
+
+  # 無効な支払い方法処理クラス
+  class InvalidMethodProcessor < BaseProcessor
+    def process
+      Result.error("無効な支払い方法です")
+    end
   end
 end

@@ -84,6 +84,7 @@ group :development, :test do
 
   # テスト高速化ツール
   gem "parallel_tests", require: false # 並列テスト実行
+  gem "rspec-retry", "~> 0.6.2", require: false # 不安定なテストの検出用
 end
 
 # テスト用
@@ -94,6 +95,16 @@ group :test do
   # テスト最適化ツール
   gem "test-prof", require: false
   gem "get_process_mem", require: false
+
+  # C1カバレッジ計測
+  gem "simplecov", "~> 0.22.0", require: false
+  gem "simplecov-cobertura", "~> 2.1.0", require: false # CIでXML形式のレポートを生成するため
+
+  # コード品質メトリクス
+  gem "rubycritic", "~> 4.8", require: false
+  gem "flog", "~> 4.7", require: false
+  gem "flay", "~> 2.13", require: false
+  gem "reek", "~> 6.2", require: false
 end
 
 # 開発環境用のツール

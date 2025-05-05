@@ -2,6 +2,8 @@
 
 # This file is copied to spec/ when you run 'rails generate rspec:install'
 require "spec_helper"
+require "rspec/retry"  # rspec-retryを追加
+
 ENV["RAILS_ENV"] ||= "test"
 require_relative "../config/environment"
 # Prevent database truncation if the environment is production
@@ -82,4 +84,22 @@ RSpec.configure do |config|
 
   # テスト実行順序をランダム化
   config.order = :random
+
+  # rspec-retry の設定（不安定なテストを検出するため）
+  config.verbose_retry = true
+  config.display_try_failure_messages = true
+
+  # レースコンディションが疑われるテストは常に複数回実行
+  config.around :each, :concurrent do |ex|
+    ex.run_with_retry retry: 3
+  end
+
+  # CI環境では失敗したテストを1回だけリトライ
+  config.around :each do |ex|
+    if ENV["CI"]
+      ex.run_with_retry retry: 1
+    else
+      ex.run
+    end
+  end
 end

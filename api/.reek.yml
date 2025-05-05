@@ -1,0 +1,37 @@
+---
+detectors:
+  TooManyInstanceVariables:
+    enabled: true
+    max_instance_variables: 5
+  TooManyMethods:
+    enabled: true
+    max_methods: 10
+  TooManyStatements:
+    enabled: true
+    max_statements: 15
+  InstanceVariableAssumption:
+    enabled: false
+  UtilityFunction:
+    public_methods_only: true
+  DuplicateMethodCall:
+    max_calls: 2
+  FeatureEnvy:
+    enabled: true
+  LongParameterList:
+    enabled: true
+    max_params: 4
+  NestedIterators:
+    max_allowed_nesting: 2
+  UncommunicativeMethodName:
+    reject:
+      - !ruby/regexp /^[a-z]$/
+      - !ruby/regexp /[0-9]$/
+  ClassVariable:
+    enabled: false
+
+exclude_paths:
+  - db
+  - config
+  - spec
+  - vendor
+  - bin

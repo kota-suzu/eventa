@@ -1,0 +1,14 @@
+# flogの設定ファイル
+---
+exclude_paths:
+  - spec/**/*
+  - test/**/*
+  - lib/tasks/**/*
+  - db/**/*
+  - config/**/*
+  - bin/**/*
+  - vendor/**/*
+
+methods: true  # メソッドごとの詳細スコアを表示
+all: false     # privateメソッドも含めるか
+summary: true  # サマリーを表示

@@ -1,5 +1,5 @@
 ############################################
-# Eventa Makefile v2-parallel-fixed (2025-05-04)
+# Eventa Makefile v2-parallel-fixed + coverage (2025-05-05)
 ############################################
 
 ### ===== 共通設定 ===== ###
@@ -16,11 +16,8 @@ RIDGEPOLE = $(COMPOSE) exec -e DB_HOST=db -e DATABASE_PASSWORD=$(DB_PASS) api bu
 ### ===== 出力ヘルパ ===== ###
 banner = @echo; echo "\033[1;36m== $(1) ==\033[0m"
 
-### ===== マクロ ===== ###
-# マクロ定義は削除して直接コマンドを記述する方式に変更
-
 ### ===== ターゲット自動抽出 ===== ###
-# "##" 付きターゲットを PHONY に
+# "##" 付きターゲットを PHONY に（必要であれば有効化してください）
 # PHONY_TARGETS := $(shell awk -F: '/^[A-Za-z0-9_-]+:.*##/ {print $$1}' "$(MAKEFILE_LIST)")
 # .PHONY: $(PHONY_TARGETS)
 # .DEFAULT_GOAL := help
@@ -33,7 +30,7 @@ help: ## 💁 コマンド一覧
 ### ===== ヘルプメッセージ関数 ===== ###
 define SETUP_HELP
 	@echo "\033[1;33m初めての実行時は以下のコマンドを実行してください：\033[0m"
-	@echo "  えmake setup      # 依存関係のインストールとDB設定"
+	@echo "  make setup      # 依存関係のインストールとDB設定"
 	@echo
 	@echo "\033[1;33m開発環境の起動：\033[0m"
 	@echo "  make dev        # 環境を起動してDBを準備"
@@ -82,11 +79,11 @@ backend-lint: ## 🧹 Lint
 	$(banner) "Backend Lint"
 	$(COMPOSE) exec api bundle exec standardrb
 
-backend-test: ## 🧪 Test
+backend-test: ## 🧪 Test＋カバレッジ
 	$(banner) "Backend Test"
-	# Rails 8.0の互換性問題を回避するためにキャッシュをクリア
-	$(COMPOSE) exec -e RAILS_ENV=test api bundle exec rails tmp:clear
-	$(COMPOSE) exec -e RAILS_ENV=test api bundle exec rspec
+	# Rails 8.0 互換性問題を回避するため tmp をクリア
+	$(COMPOSE) exec -e COVERAGE=true -e RAILS_ENV=test api bundle exec rails tmp:clear
+	$(COMPOSE) exec -e COVERAGE=true -e RAILS_ENV=test api bundle exec rspec
 
 backend-db-dry-run: ## 🔍 Ridgepole DryRun
 	$(banner) "Schema DryRun"
@@ -98,14 +95,11 @@ backend-ci: backend-fix backend-lint backend-db-dry-run backend-test ## 🔄 Bac
 ### ===== Frontend ===== ###
 frontend-fix:  ## 🔧 AutoFix
 	$(banner) "Frontend AutoFix"
-	# 必要な依存関係をすべてインストール
 	-$(COMPOSE) exec frontend npm install --save-dev eslint eslint-config-next eslint-plugin-import eslint-plugin-react eslint-plugin-react-hooks eslint-plugin-jsx-a11y --silent --no-fund || true
-	# --fix で自動修正（修正不可なエラーは無視して続行）
 	-$(COMPOSE) exec frontend npm run lint:fix --silent || true
-	# Prettierによるコードフォーマット
 	-$(COMPOSE) exec frontend npx prettier . --write --log-level error --no-color || true
 
-frontend-lint: ## 🧹 Lint (チェックのみ、失敗で exit 1)
+frontend-lint: ## 🧹 Lint
 	$(banner) "Frontend Lint"
 	$(COMPOSE) exec frontend npm run lint --silent -- --no-cache
 
@@ -121,6 +115,10 @@ frontend-build: ## 🔨 Build
 frontend-ci: frontend-fix frontend-lint frontend-test frontend-build ## 🔄 Frontend 一括
 
 ### ===== フルチェック (並列) ===== ###
+coverage-summary: ## 🔍 直近テストのカバレッジ要約
+	$(banner) "Coverage summary"
+	-$(COMPOSE) exec api sh -c 'test -f coverage/.resultset.json && jq -r '"'"'.[].result | "Line: \(.line)%, Branch: \(.branch)%"'"'"' coverage/.resultset.json | head -n1' || echo "No coverage results found"
+
 .NOTPARALLEL: full-check
 full-check: ## 🔍 Back & Front 同時検証
 	$(banner) "フルチェック実行"
@@ -134,6 +132,8 @@ full-check: ## 🔍 Back & Front 同時検証
 		echo "エラーを修正するか、依存関係の問題の場合は 'make setup' を実行してください"; \
 		exit 1; \
 	}
+	$(banner) "カバレッジ要約"
+	-$(MAKE) coverage-summary || true
 	@echo "\033[1;32m✓ full-check 完了 (JOBS=$(JOBS))\033[0m"
 
 ### ===== レポート ===== ###
@@ -168,7 +168,6 @@ setup: ## 🔧 依存関係インストール + DB準備
 	$(COMPOSE) exec api bundle config set --local without ''
 	$(COMPOSE) exec api bundle config set --local deployment 'false'
 	$(COMPOSE) exec api bundle update && $(COMPOSE) exec api bundle install
-	# Stripe gemが確実にインストールされるようにする
 	$(banner) "Stripe gemの確認とインストール"
 	$(COMPOSE) exec api bundle show stripe || $(COMPOSE) exec api bundle add stripe
 	$(banner) "フロントエンドの依存関係インストール"
@@ -206,11 +205,8 @@ repair: ## 🔧 依存関係の修復
 
 test-setup: ## 🧪 セットアップのテスト
 	$(banner) "セットアップ後の動作確認"
-	# Stripeのgemが正常にインストールされているか確認
 	$(COMPOSE) exec api bundle show stripe
-	# データベース接続が正常か確認
 	$(COMPOSE) exec api bundle exec rails runner 'puts "DB接続OK: #{ActiveRecord::Base.connection.active?}"'
-	# フロントエンドの依存関係が正常か確認
 	$(COMPOSE) exec frontend npm ls --depth=0 eslint
 	@echo "\033[1;32m✓ セットアップ正常確認完了\033[0m"
 
@@ -219,6 +215,31 @@ sidekiq-test: ## 🕒 Sidekiqジョブとスケジューラのテスト
 	$(COMPOSE) exec api bundle exec rails runner 'puts "Sidekiq: #{Sidekiq::VERSION}"; puts "Schedule Loaded: #{Sidekiq.schedule.inspect}"'
 	$(COMPOSE) exec api bundle exec rspec spec/jobs/update_ticket_type_status_job_spec.rb spec/services/ticket_type_status_update_service_spec.rb
 
+### ===== コード品質 ===== ###
+code-stats: ## 📊 コード品質スコアカード
+	$(banner) "コード品質スコア生成"
+	$(COMPOSE) exec api bundle exec rubycritic --no-browser
+
+backend-coverage: ## 📈 コードカバレッジ HTML
+	$(banner) "カバレッジレポート生成"
+	$(COMPOSE) exec -e COVERAGE=true -e RAILS_ENV=test api bundle exec rspec
+	@echo "\nカバレッジレポートは ./api/coverage/index.html を開いてください。"
+
+backend-complexity: ## 🧮 コード複雑度分析
+	$(banner) "メソッド複雑度分析"
+	$(COMPOSE) exec api bundle exec flog -d app/**/*.rb | grep -B 1 "flog total" || true
+	@echo "\n複雑度が20を超えるメソッドのリスト:"
+	$(COMPOSE) exec api bundle exec flog -ag app/**/*.rb | awk '$$1>20 {print $$0}' || true
+	@echo "\n改善が必要な上位5メソッド:"
+	$(COMPOSE) exec api bundle exec flog -ag app/**/*.rb | head -n 20 | grep -v "flog" | grep -v "^$$" | sort -nr | head -5
+
+backend-code-smells: ## 🧐 コードスメル検出
+	$(banner) "コードスメル検出"
+	$(COMPOSE) exec api bundle exec reek app
+
+backend-quality: backend-coverage backend-complexity backend-code-smells ## 🔬 すべての品質チェック
+	$(banner) "コード品質分析完了"
+	@echo "\033[1;32m✓ コード品質レポートの生成が完了しました\033[0m"
 ############################################
 # 追加ターゲットは help の自動抽出だけで OK
 ############################################
