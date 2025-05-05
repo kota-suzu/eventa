@@ -23,6 +23,7 @@ jest.mock('../../utils/auth', () => ({
   clearAuth: jest.fn(),
   getUserData: jest.fn().mockReturnValue(null),
   setUserData: jest.fn(),
+  testApiConnection: jest.fn().mockResolvedValue({ success: true }),
 }));
 
 // テスト用コンポーネント

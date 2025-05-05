@@ -33,3 +33,14 @@ Object.defineProperty(window, 'matchMedia', {
     dispatchEvent: jest.fn(),
   })),
 });
+
+// Mock fetch API for tests
+global.fetch = jest.fn().mockImplementation(() =>
+  Promise.resolve({
+    ok: true,
+    status: 200,
+    json: () => Promise.resolve({ success: true }),
+    text: () => Promise.resolve('OK'),
+    statusText: 'OK',
+  })
+);

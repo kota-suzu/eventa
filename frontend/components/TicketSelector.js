@@ -31,7 +31,7 @@ const TicketSelector = ({ tickets, onSelect }) => {
 
     for (let i = 0; i <= maxQuantity; i++) {
       options.push(
-        <option key={i} value={i}>
+        <option key={i} value={i.toString()}>
           {i}枚
         </option>
       );
@@ -40,7 +40,7 @@ const TicketSelector = ({ tickets, onSelect }) => {
     return (
       <select
         id={`quantity-${ticket.id}`}
-        value={selectedQuantities[ticket.id]}
+        value={selectedQuantities[ticket.id].toString()}
         onChange={(e) => handleQuantityChange(ticket.id, ticket.price, e)}
         disabled={ticket.available_quantity <= 0}
         className="ticket-quantity-select"

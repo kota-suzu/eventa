@@ -68,30 +68,50 @@ export const testApiConnection = async () => {
       `${api.defaults.baseURL}/${healthEndpoint}`.replace(/\/+/g, '/')
     );
 
-    // 直接fetchを使ってAPIに接続テスト（相対パスを使用）
-    const fetchResponse = await fetch(`/${healthEndpoint}`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    });
-
-    console.log('Fetch接続テスト結果:', {
-      ok: fetchResponse.ok,
-      status: fetchResponse.status,
-      statusText: fetchResponse.statusText,
-    });
-
-    // axiosを使ってAPIに接続テスト（相対パスを使用）
-    try {
-      const axiosResponse = await api.get(healthEndpoint);
-      console.log('Axios接続テスト結果:', {
-        status: axiosResponse.status,
-        data: axiosResponse.data,
+    // テスト環境や Node.js環境では fetch が使えない場合がある
+    if (typeof fetch === 'undefined') {
+      // axiosを使ってAPIに接続テスト
+      try {
+        const axiosResponse = await api.get(healthEndpoint);
+        console.log('Axios接続テスト結果:', {
+          status: axiosResponse.status,
+          data: axiosResponse.data,
+        });
+        return { success: true };
+      } catch (axiosError) {
+        console.log('Axios接続テストエラー:', axiosError.message);
+        return {
+          success: false,
+          error: axiosError.message,
+        };
+      }
+    } else {
+      // ブラウザ環境ではfetchを使用
+      // 直接fetchを使ってAPIに接続テスト（相対パスを使用）
+      const fetchResponse = await fetch(`/${healthEndpoint}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
       });
-    } catch (axiosError) {
-      console.log('Axios接続テストエラー:', axiosError.message);
-    }
 
-    return { success: true };
+      console.log('Fetch接続テスト結果:', {
+        ok: fetchResponse.ok,
+        status: fetchResponse.status,
+        statusText: fetchResponse.statusText,
+      });
+
+      // axiosを使ってAPIに接続テスト（相対パスを使用）
+      try {
+        const axiosResponse = await api.get(healthEndpoint);
+        console.log('Axios接続テスト結果:', {
+          status: axiosResponse.status,
+          data: axiosResponse.data,
+        });
+      } catch (axiosError) {
+        console.log('Axios接続テストエラー:', axiosError.message);
+      }
+
+      return { success: true };
+    }
   } catch (error) {
     console.error('API接続テストエラー:', error);
     return {

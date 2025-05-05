@@ -47,8 +47,8 @@ describe('TicketSelector', () => {
 
     // 一般チケットの数量選択で在庫以上の値を設定
     const quantitySelector = screen.getAllByRole('combobox')[0];
-    // 文字列ではなく数値として渡す
-    fireEvent.change(quantitySelector, { target: { value: 10 } });
+    // 数値を文字列として渡す
+    fireEvent.change(quantitySelector, { target: { value: '10' } });
 
     // 最大値が在庫数に制限されることを確認
     // selectでは値が直接表示されないため、selectedIndexで確認

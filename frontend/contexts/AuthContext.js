@@ -67,12 +67,29 @@ export const AuthProvider = ({ children }) => {
 
   // APIの接続状態を確認
   useEffect(() => {
-    // 開発環境のみAPIの接続状態を確認
-    if (process.env.NODE_ENV === 'development') {
-      testApiConnection().then((result) => {
-        console.log('API接続テスト結果:', result);
-      });
-    }
+    let isMounted = true;
+    const checkApiConnection = async () => {
+      // 開発環境かつテスト環境ではないときのみAPIの接続状態を確認
+      if (process.env.NODE_ENV === 'development' && process.env.NODE_ENV !== 'test') {
+        try {
+          const result = await testApiConnection();
+          if (isMounted) {
+            console.log('API接続テスト結果:', result);
+          }
+        } catch (error) {
+          if (isMounted) {
+            console.error('API接続テストエラー:', error);
+          }
+        }
+      }
+    };
+
+    checkApiConnection();
+
+    // クリーンアップ関数
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // ユーザー登録処理
