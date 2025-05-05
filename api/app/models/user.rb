@@ -20,6 +20,8 @@ class User < ApplicationRecord
 
   # クラスメソッド：メールアドレスとパスワードによる認証(簡略化)
   def self.authenticate(email, password)
-    find_by(email: email)&.authenticate(password)
+    user = find_by(email: email)
+    return nil unless user
+    user.authenticate(password) ? user : nil
   end
 end

@@ -4,7 +4,6 @@ class Reservation < ApplicationRecord
   belongs_to :user
   belongs_to :ticket
 
-  # enumを導入して可読性向上
   enum :status, {
     pending: 0,
     confirmed: 1,
