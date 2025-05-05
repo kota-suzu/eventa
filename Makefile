@@ -33,7 +33,7 @@ help: ## 💁 コマンド一覧
 ### ===== ヘルプメッセージ関数 ===== ###
 define SETUP_HELP
 	@echo "\033[1;33m初めての実行時は以下のコマンドを実行してください：\033[0m"
-	@echo "  make setup      # 依存関係のインストールとDB設定"
+	@echo "  えmake setup      # 依存関係のインストールとDB設定"
 	@echo
 	@echo "\033[1;33m開発環境の起動：\033[0m"
 	@echo "  make dev        # 環境を起動してDBを準備"

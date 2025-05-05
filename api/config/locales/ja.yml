@@ -12,6 +12,7 @@ ja:
       not_saved:
         one: "エラーが発生したため %{resource} は保存されませんでした:"
         other: "%{count} 件のエラーが発生したため %{resource} は保存されませんでした:"
+      confirmation: "が一致しません"
   auth:
     invalid_credentials: 'メールアドレスまたはパスワードが無効です'
     registration:
@@ -29,6 +30,13 @@ ja:
         taken: "はすでに存在します"
         too_short: "は%{count}文字以上で入力してください"
         invalid: "は不正な値です"
+        confirmation: "が一致しません"
+        less_than_or_equal_to: "は%{count}以下の値にしてください"
+      models:
+        ticket:
+          attributes:
+            available_quantity:
+              less_than_or_equal_to: "は総数量以下の値にしてください"
     models:
       user: ユーザー
       event: イベント
