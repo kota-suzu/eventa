@@ -7,15 +7,7 @@ RSpec.describe PaymentService do
 
   let(:user) { create(:user) }
 
-  # テスト開始前にPaymentServiceをモック化
-  before(:all) do
-    Mocks::PaymentService.setup
-  end
-
-  # テスト終了後にモックを解除
-  after(:all) do
-    Mocks::PaymentService.teardown
-  end
+  # ← モック化はsupport/mocks/payment_service_mock.rbのRSpecフックに任せるため、個別の設定は削除
 
   describe "#process" do
     context "クレジットカード決済" do
@@ -42,8 +34,8 @@ RSpec.describe PaymentService do
         # 予約を再読み込み
         reservation.reload
 
-        # ステータスが更新されていることを確認
-        expect(reservation.status).to eq("confirmed")
+        # 文字列で返されるstatus_before_type_castを整数に変換してから比較
+        expect(reservation.status_before_type_cast.to_i).to eq(Reservation.statuses[:confirmed])
       end
 
       it "決済が失敗する場合" do
@@ -64,8 +56,8 @@ RSpec.describe PaymentService do
         # 予約を再読み込み
         reservation.reload
 
-        # ステータスが更新されていることを確認
-        expect(reservation.status).to eq("payment_failed")
+        # 文字列で返されるstatus_before_type_castを整数に変換してから比較
+        expect(reservation.status_before_type_cast.to_i).to eq(Reservation.statuses[:payment_failed])
       end
     end
 

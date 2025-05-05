@@ -55,12 +55,22 @@ class PaymentService
   def process_bank_transfer
     # 銀行振込の場合は支払い確認待ちとして処理
     # 実際の振込確認は別プロセスで行う
-    Result.new(success?: true, transaction_id: "bank_transfer_#{SecureRandom.hex(8)}")
+    transaction_id = "bank_transfer_#{SecureRandom.hex(8)}"
+
+    # 支払い方法を登録 (銀行振込の場合はそのまま確認待ち)
+    reservation.update!(transaction_id: transaction_id)
+
+    Result.new(success?: true, transaction_id: transaction_id)
   end
 
   def process_convenience_store
     # コンビニ決済の場合は支払い番号を発行
     # 実際の支払い確認は別プロセスで行う
-    Result.new(success?: true, transaction_id: "cvs_#{SecureRandom.hex(8)}")
+    transaction_id = "cvs_#{SecureRandom.hex(8)}"
+
+    # 支払い方法を登録 (コンビニ決済の場合はそのまま確認待ち)
+    reservation.update!(transaction_id: transaction_id)
+
+    Result.new(success?: true, transaction_id: transaction_id)
   end
 end

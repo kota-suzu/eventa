@@ -3,8 +3,15 @@
 # PaymentServiceのモッククラス
 # テスト時に決済サービスをモック化するためのクラス
 module Mocks
-  # 結果を表す構造体
-  MockResult = Struct.new(:success?, :transaction_id, :error_message, keyword_init: true)
+  # 結果を表す構造体 - "?"で終わる名前は避ける
+  MockResult = Struct.new(:successful, :transaction_id, :error_message, keyword_init: true)
+
+  # success?メソッドを追加してsuccessfulの値を返す
+  class MockResult
+    def success?
+      successful
+    end
+  end
 
   # モック用のクラスを事前に定義
   class MockPaymentService
@@ -21,10 +28,10 @@ module Mocks
       if respond_to?(method_name, true)
         send(method_name)
       else
-        MockResult.new(success?: false, error_message: "無効な支払い方法です")
+        MockResult.new(successful: false, error_message: "無効な支払い方法です")
       end
     rescue => e
-      MockResult.new(success?: false, error_message: e.message)
+      MockResult.new(successful: false, error_message: e.message)
     end
 
     private
@@ -35,39 +42,46 @@ module Mocks
         # 決済成功
         transaction_id = "ch_#{SecureRandom.hex(10)}"
 
-        # トランザクションを使わず直接更新（テスト環境の安定性のため）
-        # 明示的にstringとして設定することで、enumの問題を回避
-        @reservation.status = "confirmed"
-        @reservation.paid_at = Time.current
-        @reservation.transaction_id = transaction_id
-        @reservation.save!
+        # ActiveRecordの標準メソッドを使用して更新（SQLインジェクション対策にもなる）
+        reservation.update!(
+          status: :confirmed,
+          paid_at: Time.current,
+          transaction_id: transaction_id
+        )
 
-        # 確実にデータベースから再取得
-        @reservation.reload
+        # 確実にリロード
+        reservation.reload
 
-        MockResult.new(success?: true, transaction_id: transaction_id)
+        MockResult.new(successful: true, transaction_id: transaction_id)
       else
-        # 決済失敗
-        @reservation.status = "payment_failed"
-        @reservation.save!
+        # 決済失敗 - 標準メソッドを使用
+        reservation.update!(status: :payment_failed)
 
-        # 確実にデータベースから再取得
-        @reservation.reload
+        # 確実にリロード
+        reservation.reload
 
-        MockResult.new(success?: false, error_message: "カードが拒否されました")
+        MockResult.new(successful: false, error_message: "カードが拒否されました")
       end
     end
 
     def process_bank_transfer
       # 銀行振込のシミュレーション
       transaction_id = "bank_transfer_#{SecureRandom.hex(8)}"
-      MockResult.new(success?: true, transaction_id: transaction_id)
+
+      # トランザクションIDを設定
+      reservation.update!(transaction_id: transaction_id)
+
+      MockResult.new(successful: true, transaction_id: transaction_id)
     end
 
     def process_convenience_store
       # コンビニ決済のシミュレーション
       transaction_id = "cvs_#{SecureRandom.hex(8)}"
-      MockResult.new(success?: true, transaction_id: transaction_id)
+
+      # トランザクションIDを設定
+      reservation.update!(transaction_id: transaction_id)
+
+      MockResult.new(successful: true, transaction_id: transaction_id)
     end
   end
 
@@ -75,11 +89,14 @@ module Mocks
     class << self
       # テスト環境用のモック設定
       def setup
-        # 既にモック化されていれば何もしない
-        return if @already_mocked
+        # 確実にモック化されるよう、状態に関わらず一度クリア
+        teardown if defined?(::OriginalPaymentService)
 
         # 本番のPaymentServiceクラスをバックアップ
-        if Object.const_defined?(:PaymentService) && !Object.const_defined?(:OriginalPaymentService)
+        if Object.const_defined?(:PaymentService)
+          # 既にモック化されている場合は何もしない
+          return if ::PaymentService == Mocks::MockPaymentService
+
           Object.const_set(:OriginalPaymentService, ::PaymentService)
         end
 
@@ -87,18 +104,27 @@ module Mocks
         Object.send(:remove_const, :PaymentService) if Object.const_defined?(:PaymentService)
         Object.const_set(:PaymentService, Mocks::MockPaymentService)
         @already_mocked = true
+
+        puts "[TEST SETUP] PaymentService has been mocked with #{Mocks::MockPaymentService}"
       end
 
       # モック解除
       def teardown
         # バックアップがあれば元に戻す
-        if Object.const_defined?(:OriginalPaymentService) && @already_mocked
+        if Object.const_defined?(:OriginalPaymentService)
           Object.send(:remove_const, :PaymentService) if Object.const_defined?(:PaymentService)
-          Object.const_set(:PaymentService, OriginalPaymentService)
+          Object.const_set(:PaymentService, ::OriginalPaymentService)
           Object.send(:remove_const, :OriginalPaymentService)
           @already_mocked = false
+          puts "[TEST TEARDOWN] PaymentService has been restored to original implementation"
         end
       end
     end
   end
+end
+
+# テストスイート全体で一度だけセットアップするためのRSpecフック
+RSpec.configure do |config|
+  config.before(:suite) { Mocks::PaymentServiceMock.setup }
+  config.after(:suite) { Mocks::PaymentServiceMock.teardown }
 end
