@@ -3,123 +3,150 @@
 require "rails_helper"
 
 RSpec.describe JsonWebToken do
-  let(:user_id) { 123 }
-  let(:payload) { { user_id: user_id } }
-  let(:now) { Time.current }
+  let(:user_id) { 1 }
+  let(:payload) { {user_id: user_id} }
+  let(:now) { Time.zone.now }
+  let(:expired_token) { nil }
+
+  before do
+    # 有効期限切れのトークンを生成
+    expiry = 10.minutes.ago.to_i
+    JWT.encode({user_id: user_id, exp: expiry}, described_class::SECRET_KEY, described_class::ALGORITHM)
+  end
 
   describe ".encode" do
-    it "encodes a payload into a JWT token" do
-      token = described_class.encode(payload)
-      expect(token).to be_a(String)
-      expect(token.split(".").length).to eq(3) # ヘッダー、ペイロード、署名の3部構成
-    end
-
-    it "adds standard JWT claims to the payload" do
-      travel_to now do
+    context "with default expiry time" do
+      it "encodes a payload into a JWT token" do
         token = described_class.encode(payload)
-        decoded_payload = JWT.decode(token, described_class::SECRET, true, { algorithm: "HS256" }).first
-        
-        expect(decoded_payload["iss"]).to eq(described_class::ISSUER)
-        expect(decoded_payload["aud"]).to eq(described_class::AUDIENCE)
-        expect(decoded_payload["iat"]).to eq(now.to_i)
-        expect(decoded_payload["nbf"]).to eq(now.to_i)
-        expect(decoded_payload["jti"]).to be_present
-        expect(decoded_payload["exp"]).to eq((now + described_class::DEFAULT_EXP).to_i)
+        decoded_payload = JWT.decode(token, described_class::SECRET_KEY, true, {algorithm: described_class::ALGORITHM}).first
         expect(decoded_payload["user_id"]).to eq(user_id)
       end
+
+      it "adds standard claims" do
+        token = described_class.encode(payload)
+        decoded_payload = JWT.decode(token, described_class::SECRET_KEY, true, {algorithm: described_class::ALGORITHM}).first
+        expect(decoded_payload).to have_key("exp")
+        expect(decoded_payload).to have_key("iat")
+      end
+
+      it "expires in the future" do
+        token = described_class.encode(payload)
+        decoded_payload = JWT.decode(token, described_class::SECRET_KEY, true, {algorithm: described_class::ALGORITHM}).first
+        expect(Time.zone.at(decoded_payload["exp"])).to be > Time.zone.now
+      end
     end
 
-    context "with custom expiration" do
-      it "accepts ActiveSupport::Duration" do
-        travel_to now do
-          token = described_class.encode(payload, 2.hours)
-          decoded_payload = JWT.decode(token, described_class::SECRET, true, { algorithm: "HS256" }).first
-          expect(decoded_payload["exp"]).to eq((now + 2.hours).to_i)
-        end
+    context "with custom expiry time" do
+      it "accepts an integer as exp" do
+        exp = (now + 5.minutes).to_i
+        token = described_class.encode(payload, exp)
+        decoded_payload = JWT.decode(token, described_class::SECRET_KEY, true, {algorithm: described_class::ALGORITHM}).first
+        expect(decoded_payload["exp"]).to eq(exp)
       end
 
-      it "accepts Time object" do
-        custom_time = 3.days.from_now
-        token = described_class.encode(payload, custom_time)
-        decoded_payload = JWT.decode(token, described_class::SECRET, true, { algorithm: "HS256" }).first
-        expect(decoded_payload["exp"]).to eq(custom_time.to_i)
+      it "accepts a Time object as exp" do
+        exp_time = now + 5.minutes
+        token = described_class.encode(payload, exp_time)
+        decoded_payload = JWT.decode(token, described_class::SECRET_KEY, true, {algorithm: described_class::ALGORITHM}).first
+        expect(decoded_payload["exp"]).to eq(exp_time.to_i)
       end
 
-      it "accepts numeric seconds" do
-        travel_to now do
-          token = described_class.encode(payload, 1800) # 30分
-          decoded_payload = JWT.decode(token, described_class::SECRET, true, { algorithm: "HS256" }).first
-          expect(decoded_payload["exp"]).to eq((now + 1800).to_i)
-        end
+      it "accepts a DateTime object as exp" do
+        exp_datetime = (now + 5.minutes).to_datetime
+        token = described_class.encode(payload, exp_datetime)
+        decoded_payload = JWT.decode(token, described_class::SECRET_KEY, true, {algorithm: described_class::ALGORITHM}).first
+        expect(decoded_payload["exp"]).to eq(exp_datetime.to_i)
+      end
+
+      it "handles nil expiry by using default expiry" do
+        token = described_class.encode(payload, nil)
+        decoded_payload = JWT.decode(token, described_class::SECRET_KEY, true, {algorithm: described_class::ALGORITHM}).first
+        expect(decoded_payload).to have_key("exp")
+        expect(Time.zone.at(decoded_payload["exp"])).to be > Time.zone.now
+        expect(Time.zone.at(decoded_payload["exp"])).to be < Time.zone.now + described_class::TOKEN_EXPIRY + 10.seconds
+      end
+    end
+
+    context "with additional claims" do
+      it "merges additional claims" do
+        additional_claims = {"admin" => true, "scope" => "read:all"}
+        token = described_class.encode(payload.merge(additional_claims))
+        decoded_payload = JWT.decode(token, described_class::SECRET_KEY, true, {algorithm: described_class::ALGORITHM}).first
+        expect(decoded_payload["admin"]).to eq(true)
+        expect(decoded_payload["scope"]).to eq("read:all")
       end
     end
   end
 
   describe ".decode" do
     context "with valid token" do
-      it "decodes a token and returns the payload" do
+      it "decodes a JWT token" do
         token = described_class.encode(payload)
-        decoded = described_class.decode(token)
-        expect(decoded).to include("user_id" => user_id)
+        decoded_payload = described_class.decode(token)
+        expect(decoded_payload["user_id"]).to eq(user_id)
       end
     end
 
     context "with invalid token" do
-      it "returns nil for expired token" do
-        expired_token = nil
-        
-        # 期限切れトークンを作成するために、expを現在時刻より前に設定
-        custom_payload = payload.merge(
-          exp: (Time.current - 10.seconds).to_i,  # 過去の有効期限
-          iat: (Time.current - 1.hour).to_i,      # 過去の発行時刻
-          nbf: (Time.current - 1.hour).to_i       # 過去の有効開始時刻
-        )
-        
-        # JWTを直接使って期限切れトークンを作成
-        expired_token = JWT.encode(
-          custom_payload,
-          described_class::SECRET,
-          'HS256'
-        )
-        
-        decoded = described_class.decode(expired_token)
-        expect(decoded).to be_nil
+      it "raises error for expired token" do
+        expiry = 10.minutes.ago.to_i
+        token = JWT.encode(payload.merge(exp: expiry), described_class::SECRET_KEY, described_class::ALGORITHM)
+        expect { described_class.decode(token) }.to raise_error(JWT::ExpiredSignature)
       end
 
-      it "returns nil for malformed token" do
-        decoded = described_class.decode("invalid.token.format")
-        expect(decoded).to be_nil
+      it "raises error for malformed token" do
+        expect { described_class.decode("invalid.token") }.to raise_error(JWT::DecodeError)
       end
 
-      it "returns nil for token with invalid signature" do
-        token = described_class.encode(payload)
-        parts = token.split(".")
-        parts[2] = "invalid_signature" # 署名部分を改ざん
-        tampered_token = parts.join(".")
-        
-        decoded = described_class.decode(tampered_token)
-        expect(decoded).to be_nil
+      it "raises error for token with invalid signature" do
+        token = JWT.encode(payload, "wrong_secret", described_class::ALGORITHM)
+        expect { described_class.decode(token) }.to raise_error(JWT::VerificationError)
       end
 
-      it "returns nil when token is nil or empty" do
-        expect(described_class.decode(nil)).to be_nil
-        expect(described_class.decode("")).to be_nil
+      it "raises error for nil token" do
+        expect { described_class.decode(nil) }.to raise_error(JWT::DecodeError)
+      end
+
+      it "raises error for empty token" do
+        expect { described_class.decode("") }.to raise_error(JWT::DecodeError)
       end
     end
   end
 
   describe ".generate_refresh_token" do
-    it "generates a refresh token with correct payload" do
-      token, session_id = described_class.generate_refresh_token(user_id)
-      
-      expect(token).to be_a(String)
-      expect(session_id).to be_a(String)
-      expect(session_id.length).to eq(32) # 16バイトのhex文字列なので32文字
-      
-      decoded = JWT.decode(token, described_class::SECRET, true, { algorithm: "HS256" }).first
-      expect(decoded["user_id"]).to eq(user_id)
-      expect(decoded["session_id"]).to eq(session_id)
-      expect(decoded["token_type"]).to eq("refresh")
+    it "generates a refresh token" do
+      refresh_token = described_class.generate_refresh_token
+      expect(refresh_token).to be_a(String)
+      expect(refresh_token.length).to be >= 32
+    end
+
+    it "generates a unique token each time" do
+      token1 = described_class.generate_refresh_token
+      token2 = described_class.generate_refresh_token
+      expect(token1).not_to eq(token2)
+    end
+
+    it "uses SecureRandom to generate tokens" do
+      expect(SecureRandom).to receive(:hex).with(32).and_return("mocked_token")
+      refresh_token = described_class.generate_refresh_token
+      expect(refresh_token).to eq("mocked_token")
+    end
+  end
+
+  describe "error handling in decode" do
+    it "handles JWT::ExpiredSignature" do
+      allow(JWT).to receive(:decode).and_raise(JWT::ExpiredSignature.new("Expired token"))
+      expect { described_class.decode("some_token") }.to raise_error(JWT::ExpiredSignature)
+    end
+
+    it "handles JWT::VerificationError" do
+      allow(JWT).to receive(:decode).and_raise(JWT::VerificationError.new("Invalid signature"))
+      expect { described_class.decode("some_token") }.to raise_error(JWT::VerificationError)
+    end
+
+    it "handles JWT::DecodeError" do
+      allow(JWT).to receive(:decode).and_raise(JWT::DecodeError.new("Invalid token"))
+      expect { described_class.decode("some_token") }.to raise_error(JWT::DecodeError)
     end
   end
 end

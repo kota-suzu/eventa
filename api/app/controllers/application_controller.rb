@@ -13,7 +13,7 @@ class ApplicationController < ActionController::API
       # controller_spec のテスト用コントローラーの場合は認証をスキップせず、ヘッダーから認証情報を取得
       token = extract_token
       if token.present?
-        payload = JsonWebToken.decode(token)
+        payload = JsonWebToken.safe_decode(token)
         if payload
           @current_user = User.find_by(id: payload["user_id"])
           return true if @current_user
@@ -29,7 +29,7 @@ class ApplicationController < ActionController::API
     token = extract_token
     return render_unauthorized(I18n.t("errors.auth.missing_token")) if token.blank?
 
-    payload = JsonWebToken.decode(token)
+    payload = JsonWebToken.safe_decode(token)
     return render_unauthorized(I18n.t("errors.auth.invalid_token")) unless payload
 
     @current_user = User.find_by(id: payload["user_id"])

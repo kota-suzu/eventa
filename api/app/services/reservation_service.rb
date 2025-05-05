@@ -3,6 +3,8 @@
 class ReservationService
   class Error < StandardError; end
 
+  VALID_PAYMENT_METHODS = %w[credit_card bank_transfer convenience_store].freeze
+
   def self.call!(user, params)
     new(user, params).execute!
   end
@@ -18,6 +20,11 @@ class ReservationService
   def execute!
     reservation = nil
 
+    # ユーザーの存在をチェック（セキュリティ向上のため）
+    raise Error, "認証されたユーザーが必要です" if @user.nil?
+
+    validate_payment_method!
+
     ApplicationRecord.transaction do
       ticket = find_and_lock_ticket
       validate_quantity!(ticket)
@@ -30,6 +37,16 @@ class ReservationService
   end
 
   private
+
+  def validate_payment_method!
+    if @payment_method.nil? || @payment_method.empty?
+      raise Error, "支払い方法は必須です"
+    end
+
+    unless VALID_PAYMENT_METHODS.include?(@payment_method)
+      raise Error, "無効な支払い方法です: #{@payment_method}"
+    end
+  end
 
   def find_and_lock_ticket
     Ticket.lock.find(@ticket_id)

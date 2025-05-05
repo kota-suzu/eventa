@@ -122,9 +122,3 @@ module Mocks
     end
   end
 end
-
-# テストスイート全体で一度だけセットアップするためのRSpecフック
-RSpec.configure do |config|
-  config.before(:suite) { Mocks::PaymentServiceMock.setup }
-  config.after(:suite) { Mocks::PaymentServiceMock.teardown }
-end

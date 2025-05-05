@@ -28,7 +28,7 @@ RSpec.describe HealthController, type: :controller do
       it "returns status ok with 200 response" do
         get :check
         expect(response).to have_http_status(:ok)
-        
+
         json = JSON.parse(response.body)
         expect(json["status"]).to eq("ok")
         expect(json["database"]).to eq("connected")
@@ -41,7 +41,7 @@ RSpec.describe HealthController, type: :controller do
         # データベース接続エラーのモック
         allow_any_instance_of(ActiveRecord::ConnectionAdapters::ConnectionPool).to receive(:with_connection)
           .and_raise(ActiveRecord::ConnectionNotEstablished.new("Connection not established"))
-        
+
         # Redis接続は正常
         allow(Redis).to receive(:new).and_return(double(ping: "PONG"))
       end
@@ -49,7 +49,7 @@ RSpec.describe HealthController, type: :controller do
       it "returns status error with 503 response" do
         get :check
         expect(response).to have_http_status(:service_unavailable)
-        
+
         json = JSON.parse(response.body)
         expect(json["status"]).to eq("error")
         expect(json["database"]).to eq("error")
@@ -62,7 +62,7 @@ RSpec.describe HealthController, type: :controller do
         # タイムアウトエラーのモック
         allow_any_instance_of(ActiveRecord::ConnectionAdapters::ConnectionPool).to receive(:with_connection)
           .and_raise(Timeout::Error.new("Database connection timeout"))
-        
+
         # Redis接続は正常
         allow(Redis).to receive(:new).and_return(double(ping: "PONG"))
       end
@@ -70,7 +70,7 @@ RSpec.describe HealthController, type: :controller do
       it "returns status error with 503 response" do
         get :check
         expect(response).to have_http_status(:service_unavailable)
-        
+
         json = JSON.parse(response.body)
         expect(json["status"]).to eq("error")
         expect(json["database"]).to eq("timeout")
@@ -82,7 +82,7 @@ RSpec.describe HealthController, type: :controller do
         # データベース接続は正常
         allow_any_instance_of(ActiveRecord::ConnectionAdapters::ConnectionPool).to receive(:with_connection)
           .and_yield(double(select_value: 1))
-        
+
         # Redis接続エラーのモック
         allow(Redis).to receive(:new).and_raise(Redis::CannotConnectError.new("Redis connection error"))
       end
@@ -90,7 +90,7 @@ RSpec.describe HealthController, type: :controller do
       it "returns status warning with 200 response" do
         get :check
         expect(response).to have_http_status(:ok)
-        
+
         json = JSON.parse(response.body)
         expect(json["status"]).to eq("warning")
         expect(json["database"]).to eq("connected")
@@ -104,7 +104,7 @@ RSpec.describe HealthController, type: :controller do
         # データベース接続は正常
         allow_any_instance_of(ActiveRecord::ConnectionAdapters::ConnectionPool).to receive(:with_connection)
           .and_yield(double(select_value: 1))
-        
+
         # Redisが設定されていない状態をモック
         allow(ENV).to receive(:[]).with("REDIS_URL").and_return(nil)
       end
@@ -112,7 +112,7 @@ RSpec.describe HealthController, type: :controller do
       it "returns status ok with redis not_configured" do
         get :check
         expect(response).to have_http_status(:ok)
-        
+
         json = JSON.parse(response.body)
         expect(json["status"]).to eq("ok")
         expect(json["database"]).to eq("connected")

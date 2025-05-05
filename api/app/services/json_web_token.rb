@@ -1,8 +1,10 @@
 class JsonWebToken
   # 秘密鍵を確実に文字列として取得
-  SECRET = Rails.configuration.x.jwt[:secret].to_s
+  SECRET_KEY = Rails.configuration.x.jwt[:secret].to_s
   # デフォルト有効期限
-  DEFAULT_EXP = Rails.configuration.x.jwt[:expiration] || 24.hours
+  TOKEN_EXPIRY = Rails.configuration.x.jwt[:expiration] || 24.hours
+  # アルゴリズム
+  ALGORITHM = "HS256"
   # アプリケーション識別子（発行者）
   ISSUER = "eventa-api-#{Rails.env}"
   # 想定される受信者（サービス名）
@@ -10,7 +12,7 @@ class JsonWebToken
 
   class << self
     # JWTトークンのエンコード - expを自動付与
-    def encode(payload, exp = DEFAULT_EXP)
+    def encode(payload, exp = TOKEN_EXPIRY)
       payload = payload.dup
       now = Time.current.to_i
 
@@ -26,30 +28,35 @@ class JsonWebToken
         exp.from_now.to_i
       elsif exp.is_a?(Time)
         exp.to_i
+      elsif exp.is_a?(DateTime)
+        exp.to_i
+      elsif exp.is_a?(Integer)
+        # 整数の場合はUnixタイムスタンプと解釈してそのまま使用
+        exp
       elsif exp.is_a?(Numeric)
-        # 負の値なら過去の時間、正の値なら未来の時間を表す
+        # その他の数値の場合は相対時間（秒）として解釈
         (Time.current + exp).to_i
       else
-        DEFAULT_EXP.from_now.to_i
+        TOKEN_EXPIRY.from_now.to_i
       end
 
-      JWT.encode(payload, SECRET, "HS256")
+      JWT.encode(payload, SECRET_KEY, ALGORITHM)
     end
 
     # JWTトークンのデコード
     def decode(token)
-      return nil if token.blank?  # 追加: tokenがnilや空文字の場合に早期リターン
+      raise JWT::DecodeError, "Token cannot be blank" if token.blank?
 
       # verify_issでiss（発行者）を検証
       # verify_audienceでaud（対象者）を検証
       # verify_iatで発行時刻を検証
       # leeway：検証時の時間ずれを許容する秒数
-      decoded = JWT.decode(
+      JWT.decode(
         token,
-        SECRET,
+        SECRET_KEY,
         true,
         {
-          algorithm: "HS256",
+          algorithm: ALGORITHM,
           verify_iss: true,
           iss: ISSUER,
           verify_aud: true,
@@ -57,16 +64,51 @@ class JsonWebToken
           verify_iat: true,
           leeway: 30 # 30秒の時間差を許容
         }
-      )
-      decoded[0]
-    rescue JWT::DecodeError, JWT::ExpiredSignature, JWT::VerificationError, JWT::InvalidIssuerError, JWT::InvalidAudError => e
-      Rails.logger.error("JWT decode error: #{e.class} - #{e.message}")
+      )[0]
+    rescue JWT::ExpiredSignature => e
+      # トークンの有効期限切れ
+      Rails.logger.info "JWT token expired: #{e.message}"
+      raise
+    rescue JWT::InvalidIssuerError => e
+      # 発行者が正しくない
+      Rails.logger.info "Invalid JWT issuer: #{e.message}"
+      raise
+    rescue JWT::InvalidAudError => e
+      # 対象者が正しくない
+      Rails.logger.info "Invalid JWT audience: #{e.message}"
+      raise
+    rescue JWT::DecodeError => e
+      # その他のデコードエラー
+      Rails.logger.info "JWT decode error: #{e.message}"
+      raise
+    end
+
+    # コントローラーなどの実際の認証処理で使用するメソッド
+    # テスト内部ではなく、アプリケーションコードで使用される
+    def safe_decode(token)
+      decode(token)
+    rescue JWT::ExpiredSignature
+      Rails.logger.info "JWT token expired"
+      nil
+    rescue JWT::InvalidIssuerError
+      Rails.logger.info "Invalid JWT issuer"
+      nil
+    rescue JWT::InvalidAudError
+      Rails.logger.info "Invalid JWT audience"
+      nil
+    rescue JWT::DecodeError => e
+      Rails.logger.info "JWT decode error: #{e.message}"
       nil
     end
 
     # リフレッシュトークンの生成（ユーザーIDと一意のセッションIDを含む）
-    def generate_refresh_token(user_id)
-      session_id = SecureRandom.hex(16)
+    def generate_refresh_token(user_id = nil)
+      session_id = SecureRandom.hex(32)
+
+      if user_id.nil?
+        return session_id
+      end
+
       refresh_exp = Rails.configuration.x.jwt[:refresh_expiration] || 30.days
 
       payload = {

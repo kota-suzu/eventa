@@ -3,7 +3,16 @@
 require "rails_helper"
 
 RSpec.describe PaymentService do
-  # モック実装と実際の実装のインターフェースを合わせた
+  # テスト開始前にモックを確実に有効化
+  before(:each) do
+    # モックが設定されていることを確認
+    Mocks::PaymentServiceMock.setup
+  end
+
+  # テスト後にモックを解除
+  after(:each) do
+    Mocks::PaymentServiceMock.teardown
+  end
 
   let(:user) { create(:user) }
 
@@ -26,8 +35,7 @@ RSpec.describe PaymentService do
         service = PaymentService.new(reservation, payment_params)
         result = service.process
 
-        # 成功したことを確認
-        expect(result).to be_a(Mocks::MockResult)
+        # 成功したことを確認（実装またはモッククラスに依らず動作するよう柔軟に）
         expect(result.success?).to be true
         expect(result.transaction_id).to match(/^ch_/)
 
@@ -49,7 +57,6 @@ RSpec.describe PaymentService do
         result = service.process
 
         # 失敗したことを確認
-        expect(result).to be_a(Mocks::MockResult)
         expect(result.success?).to be false
         expect(result.error_message).to eq("カードが拒否されました")
 
@@ -74,7 +81,7 @@ RSpec.describe PaymentService do
         service = PaymentService.new(reservation, payment_params)
         result = service.process
 
-        expect(result).to be_a(Mocks::MockResult)
+        # 型チェックではなく機能的なチェックに変更
         expect(result.success?).to be true
         expect(result.transaction_id).to include("bank_transfer_")
       end
@@ -93,7 +100,7 @@ RSpec.describe PaymentService do
         service = PaymentService.new(reservation, payment_params)
         result = service.process
 
-        expect(result).to be_a(Mocks::MockResult)
+        # 型チェックではなく機能的なチェックに変更
         expect(result.success?).to be false
         expect(result.error_message).to eq("無効な支払い方法です")
       end

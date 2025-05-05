@@ -5,6 +5,12 @@ class TicketTypeStatusUpdateService
     # 必要に応じて依存関係を注入
   end
 
+  # 時間と在庫の両方に基づいて全てのステータスを更新するメソッド
+  def update_all_statuses
+    update_status_based_on_time
+    update_status_based_on_stock
+  end
+
   def update_status_based_on_time
     # 販売開始日時を迎えた「準備中」のチケットを「販売中」に更新
     now = Time.current
