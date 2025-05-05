@@ -11,8 +11,8 @@ SimpleCov.start "rails" do
   add_filter "/vendor/"
   add_filter "/db/"
 
-  # 最低カバレッジ率を設定（70%未満だとテスト失敗）
-  minimum_coverage 70
+  # 最低カバレッジ率を設定（80%未満だとテスト失敗）
+  minimum_coverage 80
 
   # 前回より下がったら失敗
   refuse_coverage_drop
