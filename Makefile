@@ -225,16 +225,7 @@ repair-test-db: ## 🔧 テスト環境のデータベースを修復
 	# テーブル確認
 	$(COMPOSE) exec -e RAILS_ENV=test api bundle exec rails runner 'tables = ActiveRecord::Base.connection.tables.sort; puts "テーブル一覧 (#{tables.size}件): #{tables.join(", ")}"'
 	# 重要テーブルの存在確認
-	$(COMPOSE) exec -e RAILS_ENV=test api bundle exec rails runner '
-	  critical_tables = %w[events users tickets ticket_types participants reservations]; 
-	  existing_tables = ActiveRecord::Base.connection.tables;
-	  missing_tables = critical_tables - existing_tables;
-	  if missing_tables.empty?
-	    puts "✅ 重要テーブルは全て存在します"
-	  else
-	    puts "❌ 不足テーブル: #{missing_tables.join(", ")}"
-	    exit 1
-	  end'
+	$(COMPOSE) exec -e RAILS_ENV=test api bundle exec rails runner 'critical_tables = %w[events users tickets ticket_types participants reservations]; existing_tables = ActiveRecord::Base.connection.tables; missing_tables = critical_tables - existing_tables; if missing_tables.empty?; puts "✅ 重要テーブルは全て存在します"; else; puts "❌ 不足テーブル: #{missing_tables.join(", ")}"; exit 1; end'
 	@echo "\033[1;32m✓ テスト環境データベース修復完了\033[0m"
 
 repair: ## 🔧 依存関係の修復
@@ -354,3 +345,5 @@ install-pre-push: ## 🛡 push 前に make local-ci を自動実行する Git Ho
 	@echo '#!/usr/bin/env bash\nset -e\nmake local-ci' > .git/hooks/pre-push
 	@chmod +x .git/hooks/pre-push
 	@echo '\033[1;32m✓ pre-push フックを設定しました。push 時に Local CI が走ります。\033[0m'
+# CI互換テストを実行（テスト環境の健全性確認付き）
+ci-test: ## 🧪 CI互換のUserモデルとAuth関連のテストを実行

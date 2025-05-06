@@ -40,11 +40,11 @@ class User < ApplicationRecord
   # - 認証フロー全体の設計
 
   # アカウント状態管理
-  enum status: {
+  enum :status, {
     active: 0,      # 有効なアカウント
     inactive: 1,    # 無効化されたアカウント
     suspended: 2    # 一時停止されたアカウント
-  }, _prefix: true
+  }, prefix: true
 
   # アカウント無効化
   def deactivate

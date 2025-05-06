@@ -143,6 +143,23 @@ jobs:
           echo "✅ データベース準備完了"
         working-directory: ./api
       
+      # テスト環境の健全性確認
+      - name: テスト環境の健全性確認
+        run: |
+          echo "🔍 Userモデルの検証"
+          # Userモデルが正しく読み込めるか確認
+          bundle exec rails runner -e test 'puts "Userモデル確認: #{User.column_names.include?("email") ? "OK" : "NG"}"'
+          
+          # Enumが正しく機能するか確認
+          bundle exec rails runner -e test 'puts "User roleのenum確認: #{User.roles.keys}"'
+          bundle exec rails runner -e test 'puts "User statusのenum確認: #{User.statuses.keys}"'
+          
+          # JWT関連の設定確認
+          bundle exec rails runner -e test 'puts "JWT設定確認: Secret=#{ENV["JWT_SECRET_KEY"].present? ? "設定済み" : "未設定"}, 有効期間=#{ENV["JWT_EXPIRATION_HOURS"]}時間"'
+          
+          echo "✅ テスト環境健全性確認完了"
+        working-directory: ./api
+      
       - name: 認証関連のRSpecテストを実行
         run: |
           bundle exec rspec \

@@ -186,6 +186,20 @@ jobs:
           echo "✅ データベース準備完了"
         working-directory: ./api
 
+      # テスト環境の健全性確認
+      - name: テスト環境の健全性確認
+        run: |
+          echo "🔍 Userモデルの検証"
+          # Userモデルが正しく読み込めるか確認
+          bundle exec rails runner -e test 'puts "Userモデル確認: #{User.column_names.include?("email") ? "OK" : "NG"}"'
+          
+          # Enumが正しく機能するか確認
+          bundle exec rails runner -e test 'puts "User roleのenum確認: #{User.roles.keys}"'
+          bundle exec rails runner -e test 'puts "User statusのenum確認: #{User.statuses.keys}"'
+          
+          echo "✅ テスト環境健全性確認完了"
+        working-directory: ./api
+
       - name: RSpec with SimpleCov
         run: bundle exec rspec --format progress
         working-directory: ./api
