@@ -41,15 +41,13 @@ class JsonWebToken
 
     # 有効期限を計算
     def calculate_expiry(exp)
-      if exp.is_a?(ActiveSupport::Duration)
-        expiry_from_duration(exp)
-      elsif exp.is_a?(Time) || exp.is_a?(DateTime)
-        expiry_from_time_object(exp)
-      elsif exp.is_a?(Integer) || exp.is_a?(Float)
-        expiry_from_numeric(exp)
-      else
-        expiry_default
-      end
+      # それぞれの型に応じて適切なメソッドにルーティング
+      return expiry_from_duration(exp) if exp.is_a?(ActiveSupport::Duration)
+      return expiry_from_time_object(exp) if exp.is_a?(Time) || exp.is_a?(DateTime)
+      return expiry_from_numeric(exp) if exp.is_a?(Integer) || exp.is_a?(Float)
+
+      # 上記のいずれにも該当しない場合はデフォルト値を使用
+      expiry_default
     end
 
     # Durationから有効期限を計算
@@ -101,15 +99,21 @@ class JsonWebToken
 
     # デコードエラーのハンドリング
     def handle_decode_error(error)
-      # エラータイプに応じたログ出力
+      # エラーのログ記録（ログ記録の詳細は別メソッドに委譲）
       log_decode_error(error)
 
-      # エラーの再発生
-      raise error # 呼び出し元で処理できるようにエラーを再度発生させる
+      # エラーを再度発生させて呼び出し元で処理可能にする
+      raise error
     end
 
     # デコードエラーのログ出力
     def log_decode_error(error)
+      # エラーの種類に応じたログメッセージを記録
+      log_specific_error(error)
+    end
+
+    # エラータイプに応じたログ記録
+    def log_specific_error(error)
       case error
       when JWT::ExpiredSignature
         log_expired_token_error(error)
@@ -143,18 +147,26 @@ class JsonWebToken
     end
 
     # コントローラーなどの実際の認証処理で使用するメソッド
-    # テスト内部ではなく、アプリケーションコードで使用される
     def safe_decode(token)
-      # トークンが空やnilの場合は早期リターン
+      # 空トークンの早期リターン
       return nil if token.blank?
 
-      begin
-        decode(token)
-      rescue JWT::DecodeError, JWT::ExpiredSignature, JWT::VerificationError => e
-        # エラーログを記録
-        Rails.logger.info "JWT decode error: #{e.message}"
-        nil
-      end
+      # デコード処理と例外ハンドリング
+      handle_safe_decode(token)
+    end
+
+    # 安全なデコード処理の実装
+    def handle_safe_decode(token)
+      decode(token)
+    rescue JWT::DecodeError, JWT::ExpiredSignature, JWT::VerificationError => e
+      # エラーログを記録して nil を返す
+      log_decode_error_for_safe_decode(e)
+      nil
+    end
+
+    # 安全なデコード処理のためのエラーログ記録
+    def log_decode_error_for_safe_decode(error)
+      Rails.logger.info "JWT decode error: #{error.message}"
     end
 
     # リフレッシュトークンの生成（ユーザーIDと一意のセッションIDを含む）

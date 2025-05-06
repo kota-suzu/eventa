@@ -231,7 +231,7 @@ RSpec.describe ApplicationController, type: :controller do
       it "controller_name == 'auths'で有効なトークンがある場合はtrueを返す", db_clean: :truncation do
         # 新しいユーザーオブジェクトを作成（テスト間の干渉を避けるため）
         test_user = create(:user)
-        
+
         # controller_name が 'auths' の場合
         allow(controller).to receive(:controller_name).and_return("auths")
 
