@@ -30,6 +30,8 @@
 /api/.bundle
 /api/log/**/*.log
 /api/tmp/**/*.log
+/api/core
+/api/tmp/pids/server.pid
 
 # フロントエンド関連
 /frontend/.next/
@@ -84,3 +86,6 @@ Thumbs.db
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+
+# データベース設定
+/mysql_config/
