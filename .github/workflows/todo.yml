@@ -30,7 +30,7 @@ jobs:
         uses: alstr/todo-to-issue-action@v5
         with:
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # 旧式のCOMMENT_PATTERNからIDENTIFIERSへ移行
+
           IDENTIFIERS: |
             [
               {"name": "TODO", "labels": ["todo"]},
@@ -45,18 +45,13 @@ jobs:
               {"name": "HACK", "labels": ["tech-debt"]},
               {"name": "NOTE", "labels": ["documentation"]}
             ]
-          # 課題が解決されたらIssueを自動的に閉じる
+
           CLOSE_ISSUES: true
-          # 生成されたIssueのURLをコメントに挿入
           INSERT_ISSUE_URLS: true
-          # チームのデフォルト担当者
           AUTO_ASSIGN: 'kota-suzu'
-          # 対象外のファイルやディレクトリ（INCLUDE_PATTERNの代わり）
-          IGNORE: |
-            node_modules/
-            vendor/
-            **/*.lock
-            **/*.md
+
+          # ←★ 修正済み ★→
+          IGNORE: '(^|/)node_modules/.*,(^|/)vendor/.*,.*\.lock$,.*\.md$'
 
 # TODO: スケジュール実行の追加を検討する
 # 定期的に全コードベースをスキャンし、漏れなくTODOコメントをIssue化する
