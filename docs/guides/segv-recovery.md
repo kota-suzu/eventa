@@ -12,6 +12,14 @@ SEGVエラーは主に以下のような状況で発生します：
 
 特にCIパイプラインでは、**データベーススキーマの準備が不十分**な場合にSEGVエラーが発生しやすいです。
 
+### db:prepare 実行中のSEGVエラー
+
+特に `rails db:prepare` 実行中にSEGVエラーが発生する場合、次のような原因が考えられます：
+
+1. **seeds.rbでのテーブルアクセス**: テーブルが作成される前にseedsスクリプトがそのテーブルにアクセスしようとしている
+2. **スキーマファイルの重複・競合**: 複数の異なるバージョンのスキーマファイルが存在し、一貫性のない状態になっている
+3. **Ridgepoleとrails db:prepareの混在**: プロジェクトがRidgepole（外部スキーマツール）とRailsのマイグレーションを混在させている
+
 ## 診断手順
 
 ### 1. データベース状態の確認
@@ -39,18 +47,23 @@ ActiveRecord::StatementInvalid - Mysql2::Error: Table 'xxx' doesn't exist
 
 ### データベーススキーマの問題を解決する
 
-1. **rails db:prepare を使用する**（推奨）
+1. **rails db:prepareの代わりにRidgepoleを直接使用する**（このプロジェクト推奨）
 
 ```bash
 # ローカル環境
-make repair-test-db  # または
-bundle exec rails db:prepare RAILS_ENV=test
+bundle exec rails db:create RAILS_ENV=test
+bundle exec ridgepole -c config/database.yml -E test --apply -f db/Schemafile
 
 # CI環境
 - name: データベースをセットアップ
   run: |
-    bundle exec rails db:prepare RAILS_ENV=test
-    # テーブル存在確認
+    # データベース作成
+    bundle exec rails db:create RAILS_ENV=test
+    
+    # スキーマを明示的に適用
+    bundle exec ridgepole -c config/database.yml -E test --apply -f db/Schemafile
+    
+    # テーブル確認
     bundle exec rails runner 'critical_tables = %w[events users tickets ticket_types]; 
     missing = critical_tables - ActiveRecord::Base.connection.tables; 
     if missing.empty?; puts "✅ 重要テーブルは全て存在します"; 
@@ -58,11 +71,26 @@ bundle exec rails db:prepare RAILS_ENV=test
   working-directory: ./api
 ```
 
-2. **Ridgepoleを使用する場合**
+2. **seeds.rbファイルにテーブル存在確認を追加する**
+
+```ruby
+# seeds.rbの先頭に追加
+required_tables = %w[users events tickets]
+missing_tables = required_tables - ActiveRecord::Base.connection.tables
+unless missing_tables.empty?
+  puts "⚠️ 以下のテーブルが存在しないため、seedデータの作成をスキップします: #{missing_tables.join(', ')}"
+  exit(0)
+end
+
+# 以下、通常のseed処理...
+```
+
+3. **rails db:prepare を使用する場合（代替手段）**
 
 ```bash
-bundle exec rails db:create RAILS_ENV=test
-bundle exec ridgepole -c config/database.yml -E test --apply -f db/Schemafile
+# ローカル環境
+make repair-test-db  # または
+bundle exec rails db:prepare RAILS_ENV=test
 ```
 
 ### ネイティブ拡張の問題を解決する

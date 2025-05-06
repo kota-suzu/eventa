@@ -13,7 +13,7 @@ puts "テーブル存在確認を行います..."
 required_tables = %w[users events tickets]
 missing_tables = required_tables - ActiveRecord::Base.connection.tables
 unless missing_tables.empty?
-  puts "⚠️ 以下のテーブルが存在しないため、seedデータの作成をスキップします: #{missing_tables.join(', ')}"
+  puts "⚠️ 以下のテーブルが存在しないため、seedデータの作成をスキップします: #{missing_tables.join(", ")}"
   puts "ℹ️ スキーマが適用されているか確認してください。"
   exit(0) # エラーではなく正常終了
 end

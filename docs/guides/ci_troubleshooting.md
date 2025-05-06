@@ -32,7 +32,7 @@ SEGV received in SEGV handler
 
 CI環境では、テストの実行前に以下のいずれかのアプローチでデータベーススキーマを準備できます：
 
-**アプローチ1: Rails標準の`db:prepare`を使用（推奨）**
+**アプローチ1: Rails標準の`db:prepare`を使用**
 
 ```yaml
 - name: テストデータベースを準備
@@ -43,17 +43,44 @@ CI環境では、テストの実行前に以下のいずれかのアプローチ
 
 このアプローチは自動的にデータベースの作成とスキーマのロードを行います。マイグレーションが変更された場合も適切に対応します。
 
-**アプローチ2: Ridgepoleを使用（従来の方法）**
+**アプローチ2: Ridgepoleを直接使用（推奨）**
 
 ```yaml
 - name: テストデータベースを準備
   run: |
+    # データベース作成
     bundle exec rails db:create RAILS_ENV=test
+    
+    # スキーマを明示的に適用
     bundle exec ridgepole -c config/database.yml -E test --apply -f db/Schemafile
+    
+    # テーブル確認
+    bundle exec rails runner 'critical_tables = %w[events users tickets ticket_types]; 
+    missing = critical_tables - ActiveRecord::Base.connection.tables; 
+    if missing.empty?; puts "✅ 重要テーブルは全て存在します"; 
+    else; puts "❌ 不足テーブル: #{missing.join(", ")}"; exit 1; end'
   working-directory: ./api
 ```
 
-このステップをGitHub Actionsのワークフロー設定に追加することで、テスト実行前に正しいスキーマが適用されます。
+このアプローチでは、Ridgepoleを使用して直接スキーマを適用するため、より確実にテーブルが作成されます。また、重要なテーブルの存在確認ステップを追加することで、早期に問題を検出できます。
+
+#### seeds.rb の改善
+
+テーブルが存在しない場合にエラーが発生するのを防ぐために、`seeds.rb` ファイルにもテーブル存在確認を追加するとよいでしょう：
+
+```ruby
+# テーブルの存在確認
+required_tables = %w[users events tickets]
+missing_tables = required_tables - ActiveRecord::Base.connection.tables
+unless missing_tables.empty?
+  puts "⚠️ 以下のテーブルが存在しないため、seedデータの作成をスキップします: #{missing_tables.join(', ')}"
+  exit(0) # エラーではなく正常終了
+end
+
+# 以下、通常のシード処理
+```
+
+これにより、テーブルが存在しない場合でもシード処理が中断され、明示的なエラーメッセージが表示されます。
 
 #### ローカル環境での確認方法
 
