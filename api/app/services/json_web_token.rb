@@ -14,14 +14,14 @@ class JsonWebToken
     # JWTトークンのエンコード - expを自動付与
     def encode(payload, exp = TOKEN_EXPIRY)
       payload = payload.dup
-
-      # セキュリティクレームを追加
-      add_standard_claims(payload)
-
-      # 期限を設定
-      add_expiry_claim(payload, exp)
-
+      add_security_claims(payload, exp)
       JWT.encode(payload, SECRET_KEY, ALGORITHM)
+    end
+
+    # セキュリティクレームを追加（標準クレームと有効期限）
+    def add_security_claims(payload, exp)
+      add_standard_claims(payload)
+      add_expiry_claim(payload, exp)
     end
 
     # 標準的なセキュリティクレームを追加
@@ -41,13 +41,26 @@ class JsonWebToken
 
     # 有効期限を計算
     def calculate_expiry(exp)
-      # それぞれの型に応じて適切なメソッドにルーティング
-      return expiry_from_duration(exp) if exp.is_a?(ActiveSupport::Duration)
-      return expiry_from_time_object(exp) if exp.is_a?(Time) || exp.is_a?(DateTime)
-      return expiry_from_numeric(exp) if exp.is_a?(Integer) || exp.is_a?(Float)
+      determine_expiry_strategy(exp)
+    end
 
-      # 上記のいずれにも該当しない場合はデフォルト値を使用
+    # 型に基づいて適切な有効期限計算戦略を決定
+    def determine_expiry_strategy(exp)
+      return expiry_from_duration(exp) if exp.is_a?(ActiveSupport::Duration)
+      return expiry_from_time_object(exp) if time_object?(exp)
+      return expiry_from_numeric(exp) if numeric?(exp)
+
       expiry_default
+    end
+
+    # 時間オブジェクトかどうかを判定
+    def time_object?(obj)
+      obj.is_a?(Time) || obj.is_a?(DateTime)
+    end
+
+    # 数値型かどうかを判定
+    def numeric?(obj)
+      obj.is_a?(Integer) || obj.is_a?(Float)
     end
 
     # Durationから有効期限を計算
@@ -72,16 +85,25 @@ class JsonWebToken
 
     # JWTトークンのデコード
     def decode(token)
-      raise JWT::DecodeError, "Token cannot be blank" if token.blank?
+      validate_token_presence(token)
+      decode_token_with_options(token)
+    rescue JWT::DecodeError => e
+      handle_decode_error(e)
+    end
 
+    # トークンの存在チェック
+    def validate_token_presence(token)
+      raise JWT::DecodeError, "Token cannot be blank" if token.blank?
+    end
+
+    # 設定されたオプションでトークンをデコード
+    def decode_token_with_options(token)
       JWT.decode(
         token,
         SECRET_KEY,
         true,
         decode_options
       )[0]
-    rescue JWT::DecodeError => e
-      handle_decode_error(e)
     end
 
     # デコードオプションの生成
@@ -99,31 +121,30 @@ class JsonWebToken
 
     # デコードエラーのハンドリング
     def handle_decode_error(error)
-      # エラーのログ記録（ログ記録の詳細は別メソッドに委譲）
       log_decode_error(error)
-
-      # エラーを再度発生させて呼び出し元で処理可能にする
       raise error
     end
 
     # デコードエラーのログ出力
     def log_decode_error(error)
-      # エラーの種類に応じたログメッセージを記録
       log_specific_error(error)
     end
 
     # エラータイプに応じたログ記録
     def log_specific_error(error)
-      case error
-      when JWT::ExpiredSignature
-        log_expired_token_error(error)
-      when JWT::InvalidIssuerError
-        log_invalid_issuer_error(error)
-      when JWT::InvalidAudError
-        log_invalid_audience_error(error)
-      else
-        log_general_decode_error(error)
-      end
+      error_logger = determine_error_logger(error)
+      error_logger.call(error)
+    end
+
+    # エラータイプに応じたロガーを決定
+    def determine_error_logger(error)
+      error_loggers = {
+        JWT::ExpiredSignature => method(:log_expired_token_error),
+        JWT::InvalidIssuerError => method(:log_invalid_issuer_error),
+        JWT::InvalidAudError => method(:log_invalid_audience_error)
+      }
+
+      error_loggers.fetch(error.class) { method(:log_general_decode_error) }
     end
 
     # 有効期限切れエラーのログ出力
@@ -148,10 +169,7 @@ class JsonWebToken
 
     # コントローラーなどの実際の認証処理で使用するメソッド
     def safe_decode(token)
-      # 空トークンの早期リターン
       return nil if token.blank?
-
-      # デコード処理と例外ハンドリング
       handle_safe_decode(token)
     end
 
@@ -159,7 +177,6 @@ class JsonWebToken
     def handle_safe_decode(token)
       decode(token)
     rescue JWT::DecodeError, JWT::ExpiredSignature, JWT::VerificationError => e
-      # エラーログを記録して nil を返す
       log_decode_error_for_safe_decode(e)
       nil
     end
@@ -172,21 +189,26 @@ class JsonWebToken
     # リフレッシュトークンの生成（ユーザーIDと一意のセッションIDを含む）
     def generate_refresh_token(user_id = nil)
       session_id = SecureRandom.hex(32)
+      return session_id if user_id.nil?
 
-      if user_id.nil?
-        return session_id
-      end
+      create_refresh_token(user_id, session_id)
+    end
 
+    # リフレッシュトークンの作成処理
+    def create_refresh_token(user_id, session_id)
       refresh_exp = Rails.configuration.x.jwt[:refresh_expiration] || 30.days
+      payload = build_refresh_payload(user_id, session_id)
+      token = encode(payload, refresh_exp)
+      [token, session_id]
+    end
 
-      payload = {
+    # リフレッシュトークン用のペイロード構築
+    def build_refresh_payload(user_id, session_id)
+      {
         user_id: user_id,
         session_id: session_id,
         token_type: "refresh"
       }
-
-      token = encode(payload, refresh_exp)
-      [token, session_id]
     end
   end
 end

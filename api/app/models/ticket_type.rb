@@ -47,20 +47,31 @@ class TicketType < ApplicationRecord
   end
 
   def remaining_quantity
-    if defined?(@remaining_quantity)
-      return @remaining_quantity
-    end
+    # メモ化されている場合は早期リターン
+    return @remaining_quantity if defined?(@remaining_quantity)
 
+    # 売り上げ数を計算
+    @remaining_quantity = calculate_remaining_quantity
+  end
+
+  # 残りの数量を計算
+  def calculate_remaining_quantity
     if respond_to?(:sold_count)
-      # with_ticket_counts スコープが使われている場合
-      @remaining_quantity = quantity - (sold_count || 0)
+      calculate_from_sold_count
     else
-      # クエリを効率化（count() の代わりに sum() を使用）
-      sold = tickets.sum(:quantity) || 0
-      @remaining_quantity = quantity - sold
+      calculate_from_tickets_sum
     end
+  end
 
-    @remaining_quantity
+  # sold_countを使用して残り数を計算
+  def calculate_from_sold_count
+    quantity - (sold_count || 0)
+  end
+
+  # ticketsのsumを使用して残り数を計算
+  def calculate_from_tickets_sum
+    sold = tickets.sum(:quantity) || 0
+    quantity - sold
   end
 
   # カウントとイベントを一度に取得するクラスメソッド
@@ -72,8 +83,17 @@ class TicketType < ApplicationRecord
   private
 
   def sales_end_at_after_sales_start_at
-    return if sales_end_at.blank? || sales_start_at.blank?
+    return if dates_blank?
+    validate_end_after_start
+  end
 
+  # 日付が空かどうかをチェック
+  def dates_blank?
+    sales_end_at.blank? || sales_start_at.blank?
+  end
+
+  # 終了日が開始日より後であることを検証
+  def validate_end_after_start
     if sales_end_at <= sales_start_at
       errors.add(:sales_end_at, "は販売開始日時より後に設定してください")
     end
