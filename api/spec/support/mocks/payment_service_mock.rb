@@ -17,12 +17,96 @@ module Mocks
   class MockPaymentService
     attr_reader :reservation, :payment_params
 
+    # プロセッサークラスを定義
+    class CreditCardProcessor
+      def initialize(reservation, params)
+        @reservation = reservation
+        @params = params
+      end
+
+      def process
+        if @params[:token] == "tok_visa"
+          transaction_id = "ch_#{SecureRandom.hex(10)}"
+          @reservation.update!(status: :confirmed, transaction_id: transaction_id, paid_at: Time.current)
+          MockPaymentService::Result.success(transaction_id)
+        else
+          @reservation.update!(status: :payment_failed)
+          MockPaymentService::Result.error("カードが拒否されました")
+        end
+      end
+    end
+
+    class BankTransferProcessor
+      def initialize(reservation, params)
+        @reservation = reservation
+        @params = params
+      end
+
+      def process
+        transaction_id = "bank_transfer_#{SecureRandom.hex(8)}"
+        @reservation.update!(transaction_id: transaction_id)
+        MockPaymentService::Result.success(transaction_id)
+      end
+    end
+
+    class ConvenienceStoreProcessor
+      def initialize(reservation, params)
+        @reservation = reservation
+        @params = params
+      end
+
+      def process
+        transaction_id = "cvs_#{SecureRandom.hex(8)}"
+        @reservation.update!(transaction_id: transaction_id)
+        MockPaymentService::Result.success(transaction_id)
+      end
+    end
+
+    class InvalidMethodProcessor
+      def initialize(reservation, params)
+        @reservation = reservation
+        @params = params
+      end
+
+      def process
+        MockPaymentService::Result.error("無効な支払い方法です")
+      end
+    end
+
+    # Result クラスを追加
+    class Result
+      attr_reader :transaction_id, :error_message
+
+      def initialize(success, transaction_id = nil, error_message = nil)
+        @success = success
+        @transaction_id = transaction_id
+        @error_message = error_message
+      end
+
+      def success?
+        @success
+      end
+
+      def self.success(transaction_id)
+        new(true, transaction_id, nil)
+      end
+
+      def self.error(message)
+        new(false, nil, message)
+      end
+    end
+
     def initialize(reservation, payment_params)
       @reservation = reservation
       @payment_params = payment_params
     end
 
     def process
+      # テスト用に特定のメッセージで例外を投げるパラメータを検出
+      if payment_params[:method] == "error_test"
+        raise StandardError, "テスト例外"
+      end
+
       method_name = "process_#{payment_params[:method]}"
 
       if respond_to?(method_name, true)
@@ -32,6 +116,20 @@ module Mocks
       end
     rescue => e
       MockResult.new(successful: false, error_message: e.message)
+    end
+
+    # processor_for メソッドを追加
+    def processor_for(method)
+      case method
+      when "credit_card"
+        CreditCardProcessor.new(@reservation, @payment_params)
+      when "bank_transfer"
+        BankTransferProcessor.new(@reservation, @payment_params)
+      when "convenience_store"
+        ConvenienceStoreProcessor.new(@reservation, @payment_params)
+      else
+        InvalidMethodProcessor.new(@reservation, @payment_params)
+      end
     end
 
     private
@@ -105,7 +203,7 @@ module Mocks
         Object.const_set(:PaymentService, Mocks::MockPaymentService)
         @already_mocked = true
 
-        puts "[TEST SETUP] PaymentService has been mocked with #{Mocks::MockPaymentService}"
+        puts "[TEST SETUP] PaymentService has been mocked with Mocks::MockPaymentService"
       end
 
       # モック解除

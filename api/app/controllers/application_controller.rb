@@ -20,7 +20,7 @@ class ApplicationController < ActionController::API
         end
       end
       return render_unauthorized(I18n.t("errors.auth.user_not_found")) unless @current_user
-    elsif Rails.env.test?
+    elsif Rails.env.test? && controller_name != "auths"
       # 通常のテスト環境では従来通り認証をスキップ
       return true
     end

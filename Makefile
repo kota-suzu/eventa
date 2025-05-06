@@ -241,6 +241,24 @@ backend-quality: backend-coverage backend-complexity backend-code-smells ## 🔬
 	$(banner) "コード品質分析完了"
 	@echo "\033[1;32m✓ コード品質レポートの生成が完了しました\033[0m"
 
+### ===== ブランチカバレッジ向上ターゲット ===== ###
+test-payment-service: ## 💳 PaymentServiceのテスト実行
+	$(banner) "PaymentServiceのテスト実行"
+	$(COMPOSE) exec -e COVERAGE=true -e RAILS_ENV=test api bundle exec rspec spec/services/payment_service_spec.rb
+
+test-auths: ## 🔑 認証関連テスト実行
+	$(banner) "認証関連のテスト実行"
+	$(COMPOSE) exec -e COVERAGE=true -e RAILS_ENV=test api bundle exec rspec spec/requests/auths_spec.rb
+
+test-event: ## 🎟 Eventモデルのテスト実行
+	$(banner) "Eventモデルのテスト実行"
+	$(COMPOSE) exec -e COVERAGE=true -e RAILS_ENV=test api bundle exec rspec spec/models/event_spec.rb
+
+high-coverage: test-payment-service test-auths test-event ## 🏆 ブランチカバレッジ向上テスト一括実行
+	$(banner) "ブランチカバレッジ向上テスト実行完了"
+	$(MAKE) coverage-summary
+	@echo "\033[1;32m✓ ブランチカバレッジ向上テスト完了\033[0m"
+
 ############################################
 # 追加ターゲットは help の自動抽出だけで OK
 ############################################

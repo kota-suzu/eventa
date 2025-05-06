@@ -58,7 +58,7 @@ module Api
             user: user_response(@user),
             token: token,
             refresh_token: refresh_token
-          }
+          }, status: :ok
         else
           render json: {
             error: I18n.t("auth.invalid_credentials")
@@ -71,30 +71,39 @@ module Api
         # リフレッシュトークンを取得
         refresh_token = extract_refresh_token
 
+        # デバッグログ
+        Rails.logger.debug "リフレッシュトークン処理開始: #{refresh_token.present? ? "取得済み" : "未取得"}"
+
         if refresh_token.blank?
+          Rails.logger.debug "リフレッシュトークンが見つかりません"
           return render json: {error: "リフレッシュトークンが見つかりません"}, status: :unauthorized
         end
 
         # リフレッシュトークンをデコード
-        payload = JsonWebToken.decode(refresh_token)
+        payload = JsonWebToken.safe_decode(refresh_token)
+        Rails.logger.debug "デコード結果: #{payload.inspect}"
 
-        if payload.nil? || payload["token_type"] != "refresh"
+        if payload.nil?
+          Rails.logger.debug "トークンのデコードに失敗しました"
           return render json: {error: "無効なリフレッシュトークン"}, status: :unauthorized
         end
 
-        # リフレッシュトークンが有効なセッションかチェック（本来はRedisなどと照合）
-        # session_valid = SessionManager.valid_session?(user_id: payload["user_id"], session_id: payload["session_id"])
-        # return render_unauthorized("無効なセッション") unless session_valid
+        if payload["token_type"] != "refresh"
+          Rails.logger.debug "トークンタイプが不正: #{payload["token_type"]}"
+          return render json: {error: "無効なリフレッシュトークン"}, status: :unauthorized
+        end
 
         # ユーザーが存在するか確認
         user = User.find_by(id: payload["user_id"])
 
         if user.nil?
+          Rails.logger.debug "ユーザーが見つかりません: ID #{payload["user_id"]}"
           return render json: {error: "ユーザーが見つかりません"}, status: :unauthorized
         end
 
         # 新しいアクセストークンを生成
         new_token = generate_jwt_token(user)
+        Rails.logger.debug "新しいトークンを生成しました"
 
         # Cookieに新しいトークンを設定
         set_jwt_cookie(new_token)
