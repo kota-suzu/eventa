@@ -3,7 +3,7 @@
 module Api
   module V1
     class TicketTypesController < ApplicationController
-      before_action :authenticate_user!
+      before_action :authenticate_request
       before_action :set_event
       before_action :authorize_event_owner!
       before_action :set_ticket_type, only: [:show, :update, :destroy]

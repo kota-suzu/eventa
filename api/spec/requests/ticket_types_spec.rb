@@ -9,8 +9,8 @@ RSpec.describe "Api::V1::TicketTypes", type: :request do
 
   # 基本的なテストでは認証と認可をスキップ
   before do
-    # 認証と認可をモックする（コントローラが自分で判断せずに常に認証・認可OK）
-    allow_any_instance_of(Api::V1::TicketTypesController).to receive(:authenticate_user).and_return(true)
+    # 認証をモック
+    allow_any_instance_of(Api::V1::TicketTypesController).to receive(:authenticate_request).and_return(true)
     allow_any_instance_of(Api::V1::TicketTypesController).to receive(:current_user).and_return(user)
     allow_any_instance_of(Api::V1::TicketTypesController).to receive(:authorize_event_owner!).and_return(true)
   end
@@ -110,7 +110,7 @@ RSpec.describe "Api::V1::TicketTypes", type: :request do
 
       it "returns 401 unauthorized in non-test environment" do
         # 認証に関するモックをクリア（デフォルトの動作に戻す）
-        allow_any_instance_of(Api::V1::TicketTypesController).to receive(:authenticate_user).and_call_original
+        allow_any_instance_of(Api::V1::TicketTypesController).to receive(:authenticate_request).and_call_original
         # 認可メソッドの元の実装を呼び出し
         allow_any_instance_of(Api::V1::TicketTypesController).to receive(:authorize_event_owner!).and_call_original
         # 環境をテスト環境ではないと偽装
@@ -232,7 +232,7 @@ RSpec.describe "Api::V1::TicketTypes", type: :request do
 
       it "returns unauthorized when not the event owner" do
         # 認証に関するモックをクリア（デフォルトの動作に戻す）
-        allow_any_instance_of(Api::V1::TicketTypesController).to receive(:authenticate_user).and_call_original
+        allow_any_instance_of(Api::V1::TicketTypesController).to receive(:authenticate_request).and_call_original
         # 認可メソッドの元の実装を呼び出し
         allow_any_instance_of(Api::V1::TicketTypesController).to receive(:authorize_event_owner!).and_call_original
         # 現在のユーザーを元のユーザーとして設定
@@ -244,7 +244,7 @@ RSpec.describe "Api::V1::TicketTypes", type: :request do
 
       it "returns unauthorized for event owner without proper authentication" do
         # 認証に関するモックをクリア（デフォルトの動作に戻す）
-        allow_any_instance_of(Api::V1::TicketTypesController).to receive(:authenticate_user).and_call_original
+        allow_any_instance_of(Api::V1::TicketTypesController).to receive(:authenticate_request).and_call_original
         # 認可メソッドの元の実装を呼び出し
         allow_any_instance_of(Api::V1::TicketTypesController).to receive(:authorize_event_owner!).and_call_original
         # 現在のユーザーを元のユーザーとして設定
