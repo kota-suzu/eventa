@@ -22,6 +22,9 @@ class ApplicationController < ActionController::API
     elsif controller_name != "auths"
       # 通常のテスト環境では従来通り認証をスキップ
       true
+    else
+      # auths コントローラーの場合は通常の認証フローを実行
+      handle_production_authentication
     end
   end
 

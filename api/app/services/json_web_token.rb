@@ -103,7 +103,7 @@ class JsonWebToken
     def handle_decode_error(error)
       # エラータイプに応じたログ出力
       log_decode_error(error)
-      
+
       # エラーの再発生
       raise error # 呼び出し元で処理できるようにエラーを再度発生させる
     end
@@ -178,4 +178,3 @@ class JsonWebToken
     end
   end
 end
-
