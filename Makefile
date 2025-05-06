@@ -218,8 +218,23 @@ check-ci-db: ## 🔍 CI環境用データベース設定確認
 
 repair-test-db: ## 🔧 テスト環境のデータベースを修復
 	$(banner) "テスト環境データベース修復"
+	# データベースを再作成
 	$(COMPOSE) exec -e RAILS_ENV=test api bundle exec rails db:drop db:create
-	$(COMPOSE) exec -e RAILS_ENV=test api bundle exec ridgepole -c config/database.yml -E test --apply -f db/Schemafile
+	# スキーマを明示的に適用
+	$(COMPOSE) exec -e RAILS_ENV=test api bundle exec ridgepole -c config/database.yml -E test --apply --verbose -f db/Schemafile
+	# テーブル確認
+	$(COMPOSE) exec -e RAILS_ENV=test api bundle exec rails runner 'tables = ActiveRecord::Base.connection.tables.sort; puts "テーブル一覧 (#{tables.size}件): #{tables.join(", ")}"'
+	# 重要テーブルの存在確認
+	$(COMPOSE) exec -e RAILS_ENV=test api bundle exec rails runner '
+	  critical_tables = %w[events users tickets ticket_types participants reservations]; 
+	  existing_tables = ActiveRecord::Base.connection.tables;
+	  missing_tables = critical_tables - existing_tables;
+	  if missing_tables.empty?
+	    puts "✅ 重要テーブルは全て存在します"
+	  else
+	    puts "❌ 不足テーブル: #{missing_tables.join(", ")}"
+	    exit 1
+	  end'
 	@echo "\033[1;32m✓ テスト環境データベース修復完了\033[0m"
 
 repair: ## 🔧 依存関係の修復
@@ -319,7 +334,9 @@ ci-healthcheck: ## 👩‍⚕️ CIパイプラインの健全性チェック
 	$(banner) "データベース接続確認"
 	$(COMPOSE) exec -e RAILS_ENV=test api bundle exec rails runner 'begin; tables = ActiveRecord::Base.connection.tables.sort; puts "テーブル確認OK (#{tables.size}件): #{tables.join(", ")}"; rescue => e; puts "DB接続エラー: #{e.message}"; exit 1; end'
 	$(banner) "重要なテーブルの存在確認"
-	$(COMPOSE) exec -e RAILS_ENV=test api bundle exec rails runner 'critical_tables = %w[events users tickets ticket_types]; missing = critical_tables - ActiveRecord::Base.connection.tables; if missing.empty?; puts "✅ 重要テーブルは全て存在します"; else; puts "❌ 不足テーブル: #{missing.join(", ")}"; exit 1; end'
+	$(COMPOSE) exec -e RAILS_ENV=test api bundle exec rails runner 'critical_tables = %w[events users tickets ticket_types participants reservations]; missing = critical_tables - ActiveRecord::Base.connection.tables; if missing.empty?; puts "✅ 重要テーブルは全て存在します"; else; puts "❌ 不足テーブル: #{missing.join(", ")}"; exit 1; end'
+	$(banner) "usersテーブル構造確認"
+	$(COMPOSE) exec -e RAILS_ENV=test api bundle exec rails runner 'begin; columns = ActiveRecord::Base.connection.columns("users"); if columns.any?; puts "✅ usersテーブルのカラム数: #{columns.size}"; else; puts "❌ usersテーブルにカラムがありません"; exit 1; end; rescue => e; puts "❌ usersテーブル確認エラー: #{e.message}"; exit 1; end'
 	@echo "\033[1;32m✓ CIパイプライン健全性チェック完了\033[0m"
 
 # Git 履歴から修正回数が多い "アツい" ファイル上位 20 % を抽出

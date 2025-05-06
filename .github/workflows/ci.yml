@@ -129,24 +129,61 @@ jobs:
       # テストデータベースのセットアップを追加
       - name: テストデータベースを準備
         run: |
-          echo "📊 データベース準備開始..."
+          echo "📊 テストデータベースの準備を開始します..."
           
-          # データベース作成
-          bundle exec rails db:create RAILS_ENV=test
+          # MySQLの状態確認
+          echo "🔍 MySQLサービスの接続確認"
+          mysql -h 127.0.0.1 -P 3306 -u root -prootpass -e "SHOW DATABASES;"
           
-          # スキーマを明示的に適用（db:prepareではなくRidgepoleを直接使用）
-          bundle exec ridgepole -c config/database.yml -E test --apply -f db/Schemafile
+          # データベースの再作成
+          echo "🗑️ 既存データベースを削除（存在する場合）"
+          mysql -h 127.0.0.1 -P 3306 -u root -prootpass -e "DROP DATABASE IF EXISTS eventa_test;"
           
-          # シードデータのロードをスキップ
-          # bundle exec rails db:seed RAILS_ENV=test
+          echo "🆕 新規データベースを作成"
+          mysql -h 127.0.0.1 -P 3306 -u root -prootpass -e "CREATE DATABASE eventa_test CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"
+          
+          # Rails環境での確認
+          echo "🔄 Railsからデータベース接続を確認"
+          bundle exec rails runner -e test 'begin; puts "🟢 DB接続成功: #{ActiveRecord::Base.connection.active?}"; rescue => e; puts "🔴 DB接続エラー: #{e.message}"; exit 1; end'
+          
+          # スキーマを明示的に適用（--verboseオプション追加）
+          echo "🏗️ スキーマを適用（Ridgepole）"
+          bundle exec ridgepole -c config/database.yml -E test --apply --verbose -f db/Schemafile
           
           # テーブル確認
           echo "📋 テーブル構造の確認"
-          bundle exec rails runner 'tables = ActiveRecord::Base.connection.tables.sort; puts "テーブル一覧 (#{tables.size}件): #{tables.join(", ")}"; puts "データベースアダプタ: #{ActiveRecord::Base.connection.adapter_name}"'
+          bundle exec rails runner -e test 'tables = ActiveRecord::Base.connection.tables.sort; puts "テーブル一覧 (#{tables.size}件): #{tables.join(", ")}"; puts "データベースアダプタ: #{ActiveRecord::Base.connection.adapter_name}"'
           
           # 重要テーブルの存在確認
-          echo "🔍 重要テーブルの確認"
-          bundle exec rails runner 'critical_tables = %w[events users tickets ticket_types]; missing = critical_tables - ActiveRecord::Base.connection.tables; if missing.empty?; puts "✅ 重要テーブルは全て存在します"; else; puts "❌ 不足テーブル: #{missing.join(", ")}"; exit 1; end'
+          echo "🔍 重要テーブルの存在を確認"
+          bundle exec rails runner -e test '
+            critical_tables = %w[events users tickets ticket_types participants reservations] 
+            existing_tables = ActiveRecord::Base.connection.tables
+            missing_tables = critical_tables - existing_tables
+            
+            if missing_tables.empty?
+              puts "✅ 重要テーブル (#{critical_tables.join(", ")}) は全て存在します"
+            else
+              puts "❌ 以下の重要テーブルが不足しています: #{missing_tables.join(", ")}"
+              puts "  現在のテーブル: #{existing_tables.join(", ")}"
+              exit 1
+            end
+          '
+          
+          # usersテーブルの構造確認
+          echo "🔬 usersテーブルの構造確認"
+          bundle exec rails runner -e test '
+            begin
+              columns = ActiveRecord::Base.connection.columns("users")
+              puts "usersテーブルのカラム:"
+              columns.each { |c| puts "  - #{c.name} (#{c.type})" }
+            rescue => e
+              puts "usersテーブル確認エラー: #{e.message}"
+              exit 1
+            end
+          '
+          
+          echo "✅ データベース準備完了"
         working-directory: ./api
 
       - name: RSpec with SimpleCov
@@ -215,24 +252,61 @@ jobs:
       # テストデータベースのセットアップを追加
       - name: テストデータベースを準備
         run: |
-          echo "📊 データベース準備開始..."
+          echo "📊 テストデータベースの準備を開始します..."
           
-          # データベース作成
-          bundle exec rails db:create RAILS_ENV=test
+          # MySQLの状態確認
+          echo "🔍 MySQLサービスの接続確認"
+          mysql -h 127.0.0.1 -P 3306 -u root -prootpass -e "SHOW DATABASES;"
           
-          # スキーマを明示的に適用（db:prepareではなくRidgepoleを直接使用）
-          bundle exec ridgepole -c config/database.yml -E test --apply -f db/Schemafile
+          # データベースの再作成
+          echo "🗑️ 既存データベースを削除（存在する場合）"
+          mysql -h 127.0.0.1 -P 3306 -u root -prootpass -e "DROP DATABASE IF EXISTS eventa_test;"
           
-          # シードデータのロードをスキップ
-          # bundle exec rails db:seed RAILS_ENV=test
+          echo "🆕 新規データベースを作成"
+          mysql -h 127.0.0.1 -P 3306 -u root -prootpass -e "CREATE DATABASE eventa_test CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"
+          
+          # Rails環境での確認
+          echo "🔄 Railsからデータベース接続を確認"
+          bundle exec rails runner -e test 'begin; puts "🟢 DB接続成功: #{ActiveRecord::Base.connection.active?}"; rescue => e; puts "🔴 DB接続エラー: #{e.message}"; exit 1; end'
+          
+          # スキーマを明示的に適用（--verboseオプション追加）
+          echo "🏗️ スキーマを適用（Ridgepole）"
+          bundle exec ridgepole -c config/database.yml -E test --apply --verbose -f db/Schemafile
           
           # テーブル確認
           echo "📋 テーブル構造の確認"
-          bundle exec rails runner 'tables = ActiveRecord::Base.connection.tables.sort; puts "テーブル一覧 (#{tables.size}件): #{tables.join(", ")}"; puts "データベースアダプタ: #{ActiveRecord::Base.connection.adapter_name}"'
+          bundle exec rails runner -e test 'tables = ActiveRecord::Base.connection.tables.sort; puts "テーブル一覧 (#{tables.size}件): #{tables.join(", ")}"; puts "データベースアダプタ: #{ActiveRecord::Base.connection.adapter_name}"'
           
           # 重要テーブルの存在確認
-          echo "🔍 重要テーブルの確認"
-          bundle exec rails runner 'critical_tables = %w[events users tickets ticket_types]; missing = critical_tables - ActiveRecord::Base.connection.tables; if missing.empty?; puts "✅ 重要テーブルは全て存在します"; else; puts "❌ 不足テーブル: #{missing.join(", ")}"; exit 1; end'
+          echo "🔍 重要テーブルの存在を確認"
+          bundle exec rails runner -e test '
+            critical_tables = %w[events users tickets ticket_types participants reservations] 
+            existing_tables = ActiveRecord::Base.connection.tables
+            missing_tables = critical_tables - existing_tables
+            
+            if missing_tables.empty?
+              puts "✅ 重要テーブル (#{critical_tables.join(", ")}) は全て存在します"
+            else
+              puts "❌ 以下の重要テーブルが不足しています: #{missing_tables.join(", ")}"
+              puts "  現在のテーブル: #{existing_tables.join(", ")}"
+              exit 1
+            end
+          '
+          
+          # usersテーブルの構造確認
+          echo "🔬 usersテーブルの構造確認"
+          bundle exec rails runner -e test '
+            begin
+              columns = ActiveRecord::Base.connection.columns("users")
+              puts "usersテーブルのカラム:"
+              columns.each { |c| puts "  - #{c.name} (#{c.type})" }
+            rescue => e
+              puts "usersテーブル確認エラー: #{e.message}"
+              exit 1
+            end
+          '
+          
+          echo "✅ データベース準備完了"
         working-directory: ./api
 
       - name: Install parallel_tests
