@@ -262,3 +262,28 @@ high-coverage: test-payment-service test-auths test-event ## 🏆 ブランチ�
 ############################################
 # 追加ターゲットは help の自動抽出だけで OK
 ############################################
+
+
+### ===== CI互換チェック & Git インサイト ===== ###
+
+# ./github/workflows/** と同じコマンド列を 1Shot で
+local-ci: ## 🏃‍♂️ GitHub Actions と同内容のローカル CI
+	$(banner) "Local CI (GitHub Actions ミラー) 開始"
+	CI=true $(MAKE) full-check
+	@echo "\033[1;32m✓ Local CI 完了\033[0m"
+
+# Git 履歴から修正回数が多い “アツい” ファイル上位 20 % を抽出
+hot-files: ## 🔥 修正回数上位 20% のファイル一覧
+	$(banner) "Hot Files (Top 20%)"
+	@total=$$(git log --pretty=format: --name-only | grep -v '^$$' | sort -u | wc -l); \
+	 top_n=$$(( (total + 4)/5 )); \
+	 git log --pretty=format: --name-only | grep -v '^$$' | \
+	 sort | uniq -c | sort -nr | head -n $$top_n
+
+# pre-push フックを自動生成（ローカル CI を強制）
+install-pre-push: ## 🛡 push 前に make local-ci を自動実行する Git Hook をセット
+	$(banner) "pre-push Hook をインストール"
+	@mkdir -p .git/hooks
+	@echo '#!/usr/bin/env bash\nset -e\nmake local-ci' > .git/hooks/pre-push
+	@chmod +x .git/hooks/pre-push
+	@echo '\033[1;32m✓ pre-push フックを設定しました。push 時に Local CI が走ります。\033[0m'

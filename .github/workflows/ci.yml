@@ -3,9 +3,13 @@ name: CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main, develop ]
+    branches: [main, develop]
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
   lint:
@@ -13,25 +17,39 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Ruby
+      # 1) Install Ruby (skip bundle)
+      - name: Set up Ruby (no bundle yet)
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2.2'
+          bundler-cache: false
+          working-directory: ./api
+
+      # 2) Inject platform into Gemfile.lock
+      - name: Add x86_64-linux platform
+        run: bundle lock --add-platform x86_64-linux
+        working-directory: ./api
+
+      # 3) Install gems with cache
+      - name: Bundle install (cache)
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.2.2'
           bundler-cache: true
           working-directory: ./api
-          
-      - name: Install required error_highlight version
+
+      - name: Install error_highlight
         run: gem install error_highlight -v '0.7.0'
         working-directory: ./api
-          
+
       - name: RuboCop
         run: bundle exec standardrb
         working-directory: ./api
-        
+
       - name: RubyCritic
         run: bundle exec rubycritic --no-browser --minimum-score 90 --format json
         working-directory: ./api
-        
+
       - name: Flog Complexity Check
         run: |
           bundle exec flog -ag app/**/*.rb | awk '$1>20 {print; exit 1}' || (echo "メソッド複雑度が上限(20)を超えています"; exit 1)
@@ -53,7 +71,6 @@ jobs:
           --health-interval=10s
           --health-timeout=5s
           --health-retries=5
-      
       redis:
         image: redis:7-alpine
         ports:
@@ -63,35 +80,45 @@ jobs:
           --health-interval=10s
           --health-timeout=5s
           --health-retries=5
-
+    env:
+      RAILS_ENV: test
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: rootpass
+      DB_NAME: eventa_test
+      REDIS_URL: redis://localhost:6379/1
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Ruby
+      - name: Set up Ruby (no bundle yet)
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2.2'
+          bundler-cache: false
+          working-directory: ./api
+
+      - name: Add x86_64-linux platform
+        run: bundle lock --add-platform x86_64-linux
+        working-directory: ./api
+
+      - name: Bundle install (cache)
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.2.2'
           bundler-cache: true
           working-directory: ./api
-          
+
       - name: RSpec with SimpleCov
-        env:
-          RAILS_ENV: test
-          DB_HOST: 127.0.0.1
-          DB_PORT: 3306
-          DB_USER: root
-          DB_PASSWORD: rootpass
-          DB_NAME: eventa_test
-          REDIS_URL: redis://localhost:6379/1
         run: bundle exec rspec --format progress
         working-directory: ./api
-        
+
       - name: Upload coverage report to Codecov
         uses: codecov/codecov-action@v3
         with:
           directory: ./api/coverage
           fail_ci_if_error: true
-          
+
   race-condition-test:
     runs-on: ubuntu-latest
     needs: test
@@ -108,30 +135,40 @@ jobs:
           --health-interval=10s
           --health-timeout=5s
           --health-retries=5
-          
+    env:
+      RAILS_ENV: test
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: rootpass
+      DB_NAME: eventa_test
+      PARALLEL_TEST_PROCESSORS: 4
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Ruby
+      - name: Set up Ruby (no bundle yet)
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2.2'
+          bundler-cache: false
+          working-directory: ./api
+
+      - name: Add x86_64-linux platform
+        run: bundle lock --add-platform x86_64-linux
+        working-directory: ./api
+
+      - name: Bundle install (cache)
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.2.2'
           bundler-cache: true
           working-directory: ./api
-          
+
       - name: Install parallel_tests
-        run: bundle exec gem install parallel_tests
+        run: gem install parallel_tests
         working-directory: ./api
-          
+
       - name: Run Concurrent Tests
-        env:
-          RAILS_ENV: test
-          DB_HOST: 127.0.0.1
-          DB_PORT: 3306
-          DB_USER: root
-          DB_PASSWORD: rootpass
-          DB_NAME: eventa_test
-          PARALLEL_TEST_PROCESSORS: 4
         run: |
           bundle exec rake parallel:setup
           bundle exec parallel_rspec spec/models/ticket_spec.rb:62 -- --tag concurrent
