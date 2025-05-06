@@ -39,11 +39,18 @@ class User < ApplicationRecord
   # 認証アプリ（Google AuthenticatorやAuthyなど）との連携をサポート。
 
   # アカウント状態管理
+  attribute :status, :integer
   enum :status, {
     active: 0,      # 有効なアカウント
     inactive: 1,    # 無効化されたアカウント
     suspended: 2    # 一時停止されたアカウント
   }, prefix: true
+
+  # 初期化時にデフォルト値を設定
+  def initialize(attributes = nil)
+    super
+    self.status ||= :active
+  end
 
   # アカウント無効化
   def deactivate

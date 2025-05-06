@@ -1,6 +1,6 @@
 class JsonWebToken
   # 秘密鍵を確実に文字列として取得
-  SECRET_KEY = Rails.application.credentials.secret_key_base
+  SECRET_KEY = Rails.configuration.x.jwt[:secret]
   # デフォルト有効期限
   TOKEN_EXPIRY = Rails.configuration.x.jwt[:expiration] || 24.hours
   # アルゴリズム

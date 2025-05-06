@@ -25,10 +25,10 @@ echo "認証コントローラを確認中..."
 AUTH_CONTROLLER=$(find app/controllers/api/v1 -name "*auth*controller.rb" -o -name "*auths_controller.rb" | head -1)
 if [ -n "$AUTH_CONTROLLER" ]; then
   echo "認証コントローラを見つけました: $AUTH_CONTROLLER"
-  if grep -q "skip_before_action :authenticate_user" "$AUTH_CONTROLLER"; then
+  if grep -q "skip_before_action :authenticate_request" "$AUTH_CONTROLLER"; then
     echo "認証スキップ設定が既にあります"
   else
-    sed -i '1a\  skip_before_action :authenticate_user, only: [:login, :register]' "$AUTH_CONTROLLER"
+    sed -i '1a\  skip_before_action :authenticate_request, only: [:login, :register]' "$AUTH_CONTROLLER"
     echo "認証スキップ設定を追加しました"
   fi
 else

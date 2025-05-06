@@ -4,7 +4,7 @@ module Api
   module V1
     class AuthsController < ApplicationController
       # 認証をスキップ - 新規登録とログインは認証不要
-      skip_before_action :authenticate_user, only: [:register, :login, :refresh_token]
+      skip_before_action :authenticate_request, only: [:register, :login, :refresh_token]
 
       # TODO(!security!urgent): レート制限を実装して、ブルートフォース攻撃を防止
       # ログインやパスワードリセット機能に対して、IPアドレスベースのレート制限を実装。

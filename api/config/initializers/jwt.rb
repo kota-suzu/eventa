@@ -7,7 +7,8 @@ Rails.configuration.x.jwt = {
             Rails.application.credentials.dig(:jwt, :secret) || ENV["JWT_SECRET_KEY"]
           else
             # 開発とテスト環境では同じ固定キーを使用して、テスト実行時の互換性を確保
-            "development_test_fixed_key_for_jwt_eventa_app_2025"
+            # Cipher用に正確に16バイトの長さを持つキーを使用
+            "devtest-secret-16"
           end,
 
   # トークンの有効期限（時間単位、デフォルト24時間）
