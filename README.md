@@ -86,6 +86,12 @@ bundle exec rspec
 
 # 特定のテストの実行
 bundle exec rspec spec/models/user_spec.rb
+
+# CI環境をシミュレートしたテスト実行（環境問題の診断に役立ちます）
+make ci-simulate
+
+# CI環境のデータベース健全性チェック
+make ci-healthcheck
 ```
 
 ### 認証システムテスト
@@ -109,6 +115,19 @@ bundle exec rspec \
 2. **統合テスト**: API エンドポイント（登録、ログイン、トークン更新など）の検証
 3. **セキュリティテスト**: トークン改ざん、セッション固定攻撃などの防御検証
 4. **エンドツーエンドテスト**: ユーザーフロー（登録からログアウトまで）の検証
+
+### CI環境でのテスト
+
+CI環境では、以下の点に注意してテストを実行しています：
+
+1. **データベース準備**: `rails db:prepare`を使用して一貫したテスト環境を構築
+2. **MySQL環境**: すべてのワークフローで統一されたMySQLを使用
+3. **環境変数**: 接続情報を環境変数で設定し、異なる環境間での一貫性を確保
+4. **テーブル確認**: 重要なテーブルの存在を確認し、不足している場合は早期に検出
+
+CI関連ドキュメント：
+- [CI環境のトラブルシューティングガイド](docs/guides/ci_troubleshooting.md)
+- [SEGVエラー復旧ガイド](docs/guides/segv-recovery.md)
 
 詳細は[認証テストベストプラクティス](docs/guides/auth_testing_best_practices.md)を参照してください。
 

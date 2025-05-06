@@ -4,7 +4,7 @@
 
 ## データベース関連の問題
 
-### テーブル不足エラー
+### テーブル不足エラーとSEGVクラッシュ
 
 #### 問題
 
@@ -15,18 +15,38 @@ ActiveRecord::StatementInvalid - Mysql2::Error: Table 'eventa_test.tickets' does
 ActiveRecord::StatementInvalid - Mysql2::Error: Table 'eventa_test.users' doesn't exist
 ```
 
-これはテスト環境のデータベーススキーマが正しく適用されていないことを示しています。
+または、テスト実行中に以下のようなセグメンテーションフォルトが発生する場合：
+
+```
+SEGV received in SEGV handler
+/path/to/gems/mysql2-x.x.x/lib/mysql2/client.rb:xx: [BUG] Segmentation fault
+```
+
+これらはテスト環境のデータベーススキーマが正しく適用されていないことを示しています。特にSEGVエラーは、テーブルがないためにActiveRecordが例外を連発し、MySQL2ドライバがクラッシュすることで発生します。
 
 #### 原因
 
-本プロジェクトでは通常のRailsマイグレーションではなく、Ridgepole（リッジポール）を使用してデータベーススキーマを管理しています。CIの設定でRidgepoleによるスキーマ適用ステップが不足している場合にこの問題が発生します。
+本プロジェクトでは通常のRailsマイグレーションではなく、Ridgepole（リッジポール）を使用してデータベーススキーマを管理しています。CIの設定でRidgepoleによるスキーマ適用ステップが不足しているか、正しく適用されていない場合にこの問題が発生します。
 
 #### 解決策
 
-CI環境では、テストの実行前に以下のステップを実行することでRidgepoleを使ってスキーマを適用できます：
+CI環境では、テストの実行前に以下のいずれかのアプローチでデータベーススキーマを準備できます：
+
+**アプローチ1: Rails標準の`db:prepare`を使用（推奨）**
 
 ```yaml
-- name: Set up test database
+- name: テストデータベースを準備
+  run: |
+    bundle exec rails db:prepare RAILS_ENV=test
+  working-directory: ./api
+```
+
+このアプローチは自動的にデータベースの作成とスキーマのロードを行います。マイグレーションが変更された場合も適切に対応します。
+
+**アプローチ2: Ridgepoleを使用（従来の方法）**
+
+```yaml
+- name: テストデータベースを準備
   run: |
     bundle exec rails db:create RAILS_ENV=test
     bundle exec ridgepole -c config/database.yml -E test --apply -f db/Schemafile

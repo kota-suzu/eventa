@@ -97,8 +97,6 @@ jobs:
       DB_PASSWORD: rootpass
       DB_NAME: eventa_test
       REDIS_URL: redis://localhost:6379/1
-      # Ridgepole用のデバッグ出力を有効化
-      RIDGEPOLE_DEBUG: 1
     steps:
       - uses: actions/checkout@v4
 
@@ -129,10 +127,19 @@ jobs:
         working-directory: ./api
 
       # テストデータベースのセットアップを追加
-      - name: Set up test database
+      - name: テストデータベースを準備
         run: |
-          bundle exec rails db:create RAILS_ENV=test
-          bundle exec ridgepole -c config/database.yml -E test --apply -f db/Schemafile
+          # Ridgepoleの代わりにdb:prepareを使用する（より安定した方法）
+          echo "📊 データベース準備開始..."
+          bundle exec rails db:prepare RAILS_ENV=test
+          
+          # スキーマ確認と詳細診断
+          echo "📋 テーブル構造の確認"
+          bundle exec rails runner 'tables = ActiveRecord::Base.connection.tables.sort; puts "テーブル一覧 (#{tables.size}件): #{tables.join(", ")}"; puts "データベースアダプタ: #{ActiveRecord::Base.connection.adapter_name}"'
+          
+          # 主要テーブルの存在確認
+          echo "🔍 重要テーブルの確認"
+          bundle exec rails runner 'critical_tables = %w[events users tickets ticket_types]; missing = critical_tables - ActiveRecord::Base.connection.tables; if missing.empty?; puts "✅ 重要テーブルは全て存在します"; else; puts "❌ 不足テーブル: #{missing.join(", ")}"; exit 1; end'
         working-directory: ./api
 
       - name: RSpec with SimpleCov
@@ -169,8 +176,6 @@ jobs:
       DB_PASSWORD: rootpass
       DB_NAME: eventa_test
       PARALLEL_TEST_PROCESSORS: 4
-      # Ridgepole用のデバッグ出力を有効化
-      RIDGEPOLE_DEBUG: 1
     steps:
       - uses: actions/checkout@v4
 
@@ -201,10 +206,19 @@ jobs:
         working-directory: ./api
 
       # テストデータベースのセットアップを追加
-      - name: Set up test database
+      - name: テストデータベースを準備
         run: |
-          bundle exec rails db:create RAILS_ENV=test
-          bundle exec ridgepole -c config/database.yml -E test --apply -f db/Schemafile
+          # Ridgepoleの代わりにdb:prepareを使用する（より安定した方法）
+          echo "📊 データベース準備開始..."
+          bundle exec rails db:prepare RAILS_ENV=test
+          
+          # スキーマ確認と詳細診断
+          echo "📋 テーブル構造の確認"
+          bundle exec rails runner 'tables = ActiveRecord::Base.connection.tables.sort; puts "テーブル一覧 (#{tables.size}件): #{tables.join(", ")}"; puts "データベースアダプタ: #{ActiveRecord::Base.connection.adapter_name}"'
+          
+          # 主要テーブルの存在確認
+          echo "🔍 重要テーブルの確認"
+          bundle exec rails runner 'critical_tables = %w[events users tickets ticket_types]; missing = critical_tables - ActiveRecord::Base.connection.tables; if missing.empty?; puts "✅ 重要テーブルは全て存在します"; else; puts "❌ 不足テーブル: #{missing.join(", ")}"; exit 1; end'
         working-directory: ./api
 
       - name: Install parallel_tests

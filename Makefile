@@ -302,6 +302,26 @@ local-ci: ## 🏃‍♂️ GitHub Actions と同内容のローカル CI
 	CI=true $(MAKE) full-check
 	@echo "\033[1;32m✓ Local CI 完了\033[0m"
 
+# CI環境をシミュレートして実行するターゲット
+ci-simulate: ## 🤖 CI環境をシミュレートして特定のテストを実行
+	$(banner) "CI環境シミュレーション"
+	$(banner) "データベースリセット＆準備"
+	$(COMPOSE) exec -e RAILS_ENV=test api bundle exec rails db:prepare
+	$(banner) "テーブル確認"
+	$(COMPOSE) exec -e RAILS_ENV=test api bundle exec rails runner 'tables = ActiveRecord::Base.connection.tables.sort; puts "テーブル一覧 (#{tables.size}件): #{tables.join(", ")}"; puts "データベースアダプタ: #{ActiveRecord::Base.connection.adapter_name}"'
+	$(banner) "認証テスト実行"
+	$(COMPOSE) exec -e RAILS_ENV=test -e COVERAGE=true api bundle exec rspec spec/services/json_web_token_spec.rb spec/models/user_spec.rb spec/requests/auths_spec.rb
+	@echo "\033[1;32m✓ CI環境シミュレーション完了\033[0m"
+
+# CI用の診断機能（CIパイプラインチェック用）
+ci-healthcheck: ## 👩‍⚕️ CIパイプラインの健全性チェック
+	$(banner) "CIパイプライン健全性チェック"
+	$(banner) "データベース接続確認"
+	$(COMPOSE) exec -e RAILS_ENV=test api bundle exec rails runner 'begin; tables = ActiveRecord::Base.connection.tables.sort; puts "テーブル確認OK (#{tables.size}件): #{tables.join(", ")}"; rescue => e; puts "DB接続エラー: #{e.message}"; exit 1; end'
+	$(banner) "重要なテーブルの存在確認"
+	$(COMPOSE) exec -e RAILS_ENV=test api bundle exec rails runner 'critical_tables = %w[events users tickets ticket_types]; missing = critical_tables - ActiveRecord::Base.connection.tables; if missing.empty?; puts "✅ 重要テーブルは全て存在します"; else; puts "❌ 不足テーブル: #{missing.join(", ")}"; exit 1; end'
+	@echo "\033[1;32m✓ CIパイプライン健全性チェック完了\033[0m"
+
 # Git 履歴から修正回数が多い "アツい" ファイル上位 20 % を抽出
 hot-files: ## 🔥 修正回数上位 20% のファイル一覧
 	$(banner) "Hot Files (Top 20%)"
