@@ -117,11 +117,11 @@ RSpec.describe "Api::V1::TicketTypes", type: :request do
         allow(Rails.env).to receive(:test?).and_return(false)
         # 現在のユーザーを元のユーザーとして設定
         allow_any_instance_of(Api::V1::TicketTypesController).to receive(:current_user).and_return(user)
-        
+
         post api_v1_event_ticket_types_path(other_event),
           params: valid_params,
           headers: {"X-Test-User-Id" => user.id.to_s}
-          
+
         expect(response).to have_http_status(:unauthorized)
       end
     end
@@ -156,7 +156,7 @@ RSpec.describe "Api::V1::TicketTypes", type: :request do
         put api_v1_event_ticket_type_path(event, 0),
           params: {ticket_type: {name: "更新後のチケット"}},
           headers: headers
-          
+
         expect(response).to have_http_status(:not_found)
       end
     end
@@ -166,7 +166,7 @@ RSpec.describe "Api::V1::TicketTypes", type: :request do
         put api_v1_event_ticket_type_path(0, ticket_type),
           params: {ticket_type: {name: "更新後のチケット"}},
           headers: headers
-          
+
         expect(response).to have_http_status(:not_found)
       end
     end
@@ -215,7 +215,7 @@ RSpec.describe "Api::V1::TicketTypes", type: :request do
   describe "authorization" do
     let(:other_user) { create(:user) }
     let(:other_event) { create(:event, user: other_user) }
-    
+
     context "when in test environment" do
       it "allows operations even without being the event owner" do
         # すでに認可が通るようモックされているので何もしない
@@ -223,13 +223,13 @@ RSpec.describe "Api::V1::TicketTypes", type: :request do
         expect(response).to have_http_status(:ok)
       end
     end
-    
+
     context "when in production environment" do
       before do
         # 環境をテスト環境ではないと偽装
         allow(Rails.env).to receive(:test?).and_return(false)
       end
-      
+
       it "returns unauthorized when not the event owner" do
         # 認証に関するモックをクリア（デフォルトの動作に戻す）
         allow_any_instance_of(Api::V1::TicketTypesController).to receive(:authenticate_user).and_call_original
@@ -237,11 +237,11 @@ RSpec.describe "Api::V1::TicketTypes", type: :request do
         allow_any_instance_of(Api::V1::TicketTypesController).to receive(:authorize_event_owner!).and_call_original
         # 現在のユーザーを元のユーザーとして設定
         allow_any_instance_of(Api::V1::TicketTypesController).to receive(:current_user).and_return(user)
-        
+
         get api_v1_event_ticket_types_path(other_event), headers: headers
         expect(response).to have_http_status(:unauthorized)
       end
-      
+
       it "returns unauthorized for event owner without proper authentication" do
         # 認証に関するモックをクリア（デフォルトの動作に戻す）
         allow_any_instance_of(Api::V1::TicketTypesController).to receive(:authenticate_user).and_call_original
@@ -249,7 +249,7 @@ RSpec.describe "Api::V1::TicketTypes", type: :request do
         allow_any_instance_of(Api::V1::TicketTypesController).to receive(:authorize_event_owner!).and_call_original
         # 現在のユーザーを元のユーザーとして設定
         allow_any_instance_of(Api::V1::TicketTypesController).to receive(:current_user).and_return(user)
-        
+
         get api_v1_event_ticket_types_path(event), headers: headers
         expect(response).to have_http_status(:unauthorized)
       end

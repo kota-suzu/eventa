@@ -43,6 +43,7 @@ class ApplicationController < ActionController::API
 
   # テスト環境ではヘッダーからユーザーIDを取得するメソッドを追加
   def current_user
+    # すでに@current_userが設定されている場合はそれを返す（本番環境対応）
     return @current_user if @current_user
 
     # テスト環境では特殊なヘッダーから取得を試みる

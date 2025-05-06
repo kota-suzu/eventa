@@ -1,14 +1,14 @@
 class JsonWebToken
   # 秘密鍵を確実に文字列として取得
-  SECRET_KEY = Rails.configuration.x.jwt[:secret].to_s
+  SECRET_KEY = Rails.application.credentials.secret_key_base
   # デフォルト有効期限
   TOKEN_EXPIRY = Rails.configuration.x.jwt[:expiration] || 24.hours
   # アルゴリズム
   ALGORITHM = "HS256"
   # アプリケーション識別子（発行者）
-  ISSUER = "eventa-api-#{Rails.env}"
+  ISSUER = Rails.application.credentials.jwt_issuer || "eventa-api-#{Rails.env}"
   # 想定される受信者（サービス名）
-  AUDIENCE = "eventa-client"
+  AUDIENCE = Rails.application.credentials.jwt_audience || "eventa-client"
 
   class << self
     # JWTトークンのエンコード - expを自動付与
@@ -30,12 +30,9 @@ class JsonWebToken
         exp.to_i
       elsif exp.is_a?(DateTime)
         exp.to_i
-      elsif exp.is_a?(Integer)
-        # 整数の場合はUnixタイムスタンプと解釈してそのまま使用
-        exp
-      elsif exp.is_a?(Numeric)
-        # その他の数値の場合は相対時間（秒）として解釈
-        (Time.current + exp).to_i
+      elsif exp.is_a?(Integer) || exp.is_a?(Float)
+        # 整数または浮動小数点の場合はUnixタイムスタンプと解釈してそのまま使用
+        exp.to_i
       else
         TOKEN_EXPIRY.from_now.to_i
       end
@@ -86,19 +83,16 @@ class JsonWebToken
     # コントローラーなどの実際の認証処理で使用するメソッド
     # テスト内部ではなく、アプリケーションコードで使用される
     def safe_decode(token)
-      decode(token)
-    rescue JWT::ExpiredSignature
-      Rails.logger.info "JWT token expired"
-      nil
-    rescue JWT::InvalidIssuerError
-      Rails.logger.info "Invalid JWT issuer"
-      nil
-    rescue JWT::InvalidAudError
-      Rails.logger.info "Invalid JWT audience"
-      nil
-    rescue JWT::DecodeError => e
-      Rails.logger.info "JWT decode error: #{e.message}"
-      nil
+      # トークンが空やnilの場合は早期リターン
+      return nil if token.blank?
+
+      begin
+        decode(token)
+      rescue JWT::DecodeError, JWT::ExpiredSignature, JWT::VerificationError => e
+        # エラーログを記録
+        Rails.logger.info "JWT decode error: #{e.message}"
+        nil
+      end
     end
 
     # リフレッシュトークンの生成（ユーザーIDと一意のセッションIDを含む）
