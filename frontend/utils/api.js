@@ -219,9 +219,4 @@ export const login = async (credentials) => {
   return user;
 };
 
-// ログアウト
-export const logout = () => {
-  localStorage.removeItem('auth_token');
-};
-
 export default apiClient;

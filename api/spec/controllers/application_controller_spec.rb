@@ -227,19 +227,23 @@ RSpec.describe ApplicationController, type: :controller do
         controller.send(:authenticate_user)
       end
 
-      it "controller_name == 'auths'で有効なトークンがある場合はtrueを返す" do
+      # デッドロックを避けるためにトランケーション戦略を使用
+      it "controller_name == 'auths'で有効なトークンがある場合はtrueを返す", db_clean: :truncation do
+        # 新しいユーザーオブジェクトを作成（テスト間の干渉を避けるため）
+        test_user = create(:user)
+        
         # controller_name が 'auths' の場合
         allow(controller).to receive(:controller_name).and_return("auths")
 
         # 有効なトークンがある場合
         token = "valid_token"
         allow(controller).to receive(:extract_token).and_return(token)
-        payload = {"user_id" => user.id}
+        payload = {"user_id" => test_user.id}
         allow(JsonWebToken).to receive(:safe_decode).with(token).and_return(payload)
-        allow(User).to receive(:find_by).with(id: user.id).and_return(user)
+        allow(User).to receive(:find_by).with(id: test_user.id).and_return(test_user)
 
         # current_userを設定
-        controller.instance_variable_set(:@current_user, user)
+        controller.instance_variable_set(:@current_user, test_user)
 
         # render_unauthorizedが呼ばれないことを確認
         expect(controller).not_to receive(:render_unauthorized)
