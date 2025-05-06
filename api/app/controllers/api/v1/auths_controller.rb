@@ -141,15 +141,32 @@ module Api
       end
 
       def user_params
-        # ユーザーパラメータがauthハッシュ内にネストされている場合の対応
+        param_format = determine_param_format
+        extract_user_params(param_format)
+      end
+
+      # パラメータのフォーマットを判定
+      def determine_param_format
         if params[:auth] && params[:auth][:user].present?
-          params.require(:auth).require(:user).permit(:name, :email, :password, :password_confirmation, :bio, :role)
+          :nested_user
         elsif params[:auth].present? && params[:auth].key?(:name)
-          # authハッシュ内に直接ユーザー情報がある場合
-          params.require(:auth).permit(:name, :email, :password, :password_confirmation, :bio, :role)
+          :direct_auth
         else
-          # 従来通りのパラメータ形式
-          params.permit(:name, :email, :password, :password_confirmation, :bio, :role)
+          :root_level
+        end
+      end
+
+      # フォーマットに応じたユーザーパラメータの抽出
+      def extract_user_params(format)
+        permitted_attrs = [:name, :email, :password, :password_confirmation, :bio, :role]
+
+        case format
+        when :nested_user
+          params.require(:auth).require(:user).permit(*permitted_attrs)
+        when :direct_auth
+          params.require(:auth).permit(*permitted_attrs)
+        else
+          params.permit(*permitted_attrs)
         end
       end
 

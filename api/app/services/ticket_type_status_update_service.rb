@@ -22,30 +22,59 @@ class TicketTypeStatusUpdateService
 
   # 販売開始時間/終了時間に基づいたステータス更新
   def update_status_based_on_time
-    # 販売開始時刻を過ぎた「準備中」チケットを「販売中」に更新
     current_time = Time.current
-    draft_tickets_to_update = TicketType.where(status: "draft")
-      .where("sales_start_at <= ?", current_time)
+
+    # 販売開始処理
+    update_drafts_to_on_sale(current_time)
+
+    # 販売終了処理
+    update_on_sale_to_closed(current_time)
+  end
+
+  # 準備中から販売中への更新
+  def update_drafts_to_on_sale(current_time)
+    draft_tickets_to_update = find_draft_tickets_to_update(current_time)
 
     if draft_tickets_to_update.exists?
-      count = 0
-      draft_tickets_to_update.in_batches do |batch|
-        count += batch.update_all(status: "on_sale")
-      end
-      Sidekiq.logger.info "【販売開始更新】#{count}件のチケットタイプを「販売中」に更新しました" if count > 0
+      count = update_tickets_status(draft_tickets_to_update, "on_sale")
+      log_status_updates(count, "販売開始更新", "販売中") if count > 0
     end
+  end
 
-    # 販売終了時刻を過ぎた「販売中」チケットを「終了」に更新
-    on_sale_tickets_to_update = TicketType.where(status: "on_sale")
-      .where("sales_end_at <= ?", current_time)
+  # 販売中から販売終了への更新
+  def update_on_sale_to_closed(current_time)
+    on_sale_tickets_to_update = find_on_sale_tickets_to_update(current_time)
 
     if on_sale_tickets_to_update.exists?
-      count = 0
-      on_sale_tickets_to_update.in_batches do |batch|
-        count += batch.update_all(status: "closed")
-      end
-      Sidekiq.logger.info "【販売終了更新】#{count}件のチケットタイプを「終了」に更新しました" if count > 0
+      count = update_tickets_status(on_sale_tickets_to_update, "closed")
+      log_status_updates(count, "販売終了更新", "終了") if count > 0
     end
+  end
+
+  # 販売開始対象のチケットを検索
+  def find_draft_tickets_to_update(current_time)
+    TicketType.where(status: "draft")
+      .where("sales_start_at <= ?", current_time)
+  end
+
+  # 販売終了対象のチケットを検索
+  def find_on_sale_tickets_to_update(current_time)
+    TicketType.where(status: "on_sale")
+      .where("sales_end_at <= ?", current_time)
+  end
+
+  # チケットのステータスを更新
+  def update_tickets_status(tickets, new_status)
+    count = 0
+    tickets.in_batches do |batch|
+      count += batch.update_all(status: new_status)
+    end
+    count
+  end
+
+  # ログ出力
+  def log_status_updates(count, update_type, new_status)
+    Sidekiq.logger.info "【#{update_type}】#{count}件のチケットタイプを「#{new_status}」に更新しました"
   end
 
   # 在庫状況に基づいたステータス更新

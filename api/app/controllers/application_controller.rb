@@ -10,21 +10,21 @@ class ApplicationController < ActionController::API
   def authenticate_user
     if Rails.env.test?
       handle_test_environment_authentication
-    else 
+    else
       handle_production_authentication
     end
   end
-  
+
   # テスト環境での認証ハンドリング
   def handle_test_environment_authentication
     if controller_name == "anonymous"
       authenticate_anonymous_controller
     elsif controller_name != "auths"
       # 通常のテスト環境では従来通り認証をスキップ
-      return true
+      true
     end
   end
-  
+
   # 匿名コントローラーの認証処理（テスト環境）
   def authenticate_anonymous_controller
     token = extract_token
@@ -37,7 +37,7 @@ class ApplicationController < ActionController::API
     end
     render_unauthorized(I18n.t("errors.auth.user_not_found")) unless @current_user
   end
-  
+
   # 本番/開発環境の認証処理
   def handle_production_authentication
     token = extract_token
@@ -45,7 +45,7 @@ class ApplicationController < ActionController::API
 
     authenticate_with_token(token)
   end
-  
+
   # トークンを使った認証処理
   def authenticate_with_token(token)
     payload = JsonWebToken.safe_decode(token)
@@ -70,7 +70,7 @@ class ApplicationController < ActionController::API
 
     @current_user
   end
-  
+
   # テスト環境用のユーザー検索処理
   def find_user_for_test_environment
     # テスト用ヘッダーからのユーザーID取得を試みる
@@ -86,7 +86,7 @@ class ApplicationController < ActionController::API
     # 見つからない場合は最初のユーザーをデフォルトとして使用
     @current_user ||= User.first
   end
-  
+
   # イベントからユーザーを検索
   def find_user_from_event
     event = Event.find_by(id: params[:event_id])

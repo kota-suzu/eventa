@@ -14,16 +14,16 @@ class JsonWebToken
     # JWTトークンのエンコード - expを自動付与
     def encode(payload, exp = TOKEN_EXPIRY)
       payload = payload.dup
-      
+
       # セキュリティクレームを追加
       add_standard_claims(payload)
-      
+
       # 期限を設定
       add_expiry_claim(payload, exp)
 
       JWT.encode(payload, SECRET_KEY, ALGORITHM)
     end
-    
+
     # 標準的なセキュリティクレームを追加
     def add_standard_claims(payload)
       now = Time.current.to_i
@@ -33,26 +33,43 @@ class JsonWebToken
       payload[:nbf] = now               # 有効開始時刻
       payload[:jti] = SecureRandom.uuid # 一意のトークンID
     end
-    
+
     # 有効期限クレームを追加
     def add_expiry_claim(payload, exp)
       payload[:exp] = calculate_expiry(exp)
     end
-    
+
     # 有効期限を計算
     def calculate_expiry(exp)
       if exp.is_a?(ActiveSupport::Duration)
-        exp.from_now.to_i
-      elsif exp.is_a?(Time)
-        exp.to_i
-      elsif exp.is_a?(DateTime)
-        exp.to_i
+        expiry_from_duration(exp)
+      elsif exp.is_a?(Time) || exp.is_a?(DateTime)
+        expiry_from_time_object(exp)
       elsif exp.is_a?(Integer) || exp.is_a?(Float)
-        # 整数または浮動小数点の場合はUnixタイムスタンプと解釈してそのまま使用
-        exp.to_i
+        expiry_from_numeric(exp)
       else
-        TOKEN_EXPIRY.from_now.to_i
+        expiry_default
       end
+    end
+
+    # Durationから有効期限を計算
+    def expiry_from_duration(duration)
+      duration.from_now.to_i
+    end
+
+    # TimeオブジェクトからUnixタイムスタンプを取得
+    def expiry_from_time_object(time_obj)
+      time_obj.to_i
+    end
+
+    # 数値からUnixタイムスタンプを取得
+    def expiry_from_numeric(numeric)
+      numeric.to_i
+    end
+
+    # デフォルトの有効期限を返す
+    def expiry_default
+      TOKEN_EXPIRY.from_now.to_i
     end
 
     # JWTトークンのデコード
@@ -68,7 +85,7 @@ class JsonWebToken
     rescue JWT::DecodeError => e
       handle_decode_error(e)
     end
-    
+
     # デコードオプションの生成
     def decode_options
       {
@@ -81,20 +98,48 @@ class JsonWebToken
         leeway: 30 # 30秒の時間差を許容
       }
     end
-    
+
     # デコードエラーのハンドリング
     def handle_decode_error(error)
+      # エラータイプに応じたログ出力
+      log_decode_error(error)
+      
+      # エラーの再発生
+      raise error # 呼び出し元で処理できるようにエラーを再度発生させる
+    end
+
+    # デコードエラーのログ出力
+    def log_decode_error(error)
       case error
       when JWT::ExpiredSignature
-        Rails.logger.info "JWT token expired: #{error.message}"
+        log_expired_token_error(error)
       when JWT::InvalidIssuerError
-        Rails.logger.info "Invalid JWT issuer: #{error.message}"
+        log_invalid_issuer_error(error)
       when JWT::InvalidAudError
-        Rails.logger.info "Invalid JWT audience: #{error.message}"
+        log_invalid_audience_error(error)
       else
-        Rails.logger.info "JWT decode error: #{error.message}"
+        log_general_decode_error(error)
       end
-      raise error # 呼び出し元で処理できるようにエラーを再度発生させる
+    end
+
+    # 有効期限切れエラーのログ出力
+    def log_expired_token_error(error)
+      Rails.logger.info "JWT token expired: #{error.message}"
+    end
+
+    # 不正な発行者エラーのログ出力
+    def log_invalid_issuer_error(error)
+      Rails.logger.info "Invalid JWT issuer: #{error.message}"
+    end
+
+    # 不正な対象者エラーのログ出力
+    def log_invalid_audience_error(error)
+      Rails.logger.info "Invalid JWT audience: #{error.message}"
+    end
+
+    # その他のデコードエラーのログ出力
+    def log_general_decode_error(error)
+      Rails.logger.info "JWT decode error: #{error.message}"
     end
 
     # コントローラーなどの実際の認証処理で使用するメソッド
@@ -133,3 +178,4 @@ class JsonWebToken
     end
   end
 end
+
