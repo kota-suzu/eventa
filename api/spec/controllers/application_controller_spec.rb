@@ -304,7 +304,8 @@ RSpec.describe ApplicationController, type: :controller do
         json: {error: custom_message},
         status: :unauthorized
       )
-
+      # todo: テストのカバー率を高める
+      # テストのカバー率を高めるために、カスタムメッセージのテストを追加
       controller.send(:render_unauthorized, custom_message)
     end
   end
