@@ -11,6 +11,9 @@ Rails.application.routes.draw do
   # 以前のRailsデフォルトヘルスチェックはカスタムエンドポイントにリダイレクト
   get "up" => redirect("/healthz", status: 301)
 
+  # ヘルスチェックエンドポイント
+  get "health", to: "health#index"
+
   # API エンドポイント
   namespace :api do
     namespace :v1 do

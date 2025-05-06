@@ -13,23 +13,49 @@ default: &default
   adapter: mysql2
   encoding: utf8mb4
   pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
-  username: <%= ENV.fetch("DATABASE_USERNAME") { "root" } %>
-  password: <%= ENV.fetch("DATABASE_PASSWORD") { "rootpass" } %>
-  host: <%= ENV.fetch("DB_HOST") { "localhost" } %>
+  username: <%= ENV.fetch("DB_USERNAME") { "root" } %>
+  password: <%= ENV.fetch("DB_PASSWORD") { "rootpass" } %>
+  host: <%= ENV.fetch("DB_HOST") { "db" } %>
   port: <%= ENV.fetch("DB_PORT") { 3306 } %>
   socket: <%= ENV.fetch("DB_SOCKET") { "/tmp/mysql.sock" } %>
+  # 全環境での接続設定を改善
+  reconnect: true
+  connect_timeout: 5
+  read_timeout: 60
+  write_timeout: 60
+  variables:
+    wait_timeout: 3600
+    max_allowed_packet: 16777216  # 16M
+    sort_buffer_size: 67108864    # 64M
+    net_buffer_length: 8192
+    # tx_isolation 変数を transaction_isolation に更新（MySQL 8.0以降）
+    transaction_isolation: "READ-COMMITTED"
+    sql_mode: "STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION"
 
 development:
   <<: *default
   database: eventa_development
+  variables:
+    # 開発環境固有の変数設定
+    transaction_isolation: "READ-COMMITTED"
 
 # 注意：テスト環境はprepare_databaseタスクを実行するとき
 # または環境変数TEST_ENV_NUMBERが設定されていないとき、eventa_testが使われます
 # テストの並列実行で効率的に動作するようにします
 test: &test
   <<: *default
-  database: eventa_test
-  pool: <%= ENV.fetch("PARALLEL_TEST_WORKERS") { 4 } %>
+  database: <%= "eventa_test#{ENV['TEST_ENV_NUMBER']}" %>
+  # テスト環境ではより多くの接続を確保し、Railsテストスイートの並列性を向上
+  pool: <%= ENV.fetch("TEST_DB_POOL") { 10 } %>
+  # テスト環境でのトランザクション分離の強化
+  variables:
+    transaction_isolation: "READ-COMMITTED"
+    sql_mode: "STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION"
+  # サーバーのタイムアウト設定
+  connect_timeout: 15  # 接続タイムアウトを15秒に設定（デフォルトは5秒）
+  read_timeout: 120    # 読み取りタイムアウトを120秒に設定
+  write_timeout: 120   # 書き込みタイムアウトを120秒に設定
+  reconnect: true      # 接続が切れた場合に自動的に再接続
 
 # As with config/credentials.yml, you never want to store sensitive information,
 # like your database password, in your source code. If your source code is

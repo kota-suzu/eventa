@@ -107,6 +107,10 @@ group :test do
   gem "flog", "~> 4.7", require: false
   gem "flay", "~> 2.13", require: false
   gem "reek", "~> 6.2", require: false
+
+  gem "capybara", "~> 3.39"
+  gem "selenium-webdriver", "~> 4.10"  # バージョンを下げて互換性を確保
+  gem "webdrivers", "~> 5.3"           # ブラウザドライバの自動ダウンロード
 end
 
 # 開発環境用のツール
