@@ -14,17 +14,34 @@ class JsonWebToken
     # JWTトークンのエンコード - expを自動付与
     def encode(payload, exp = TOKEN_EXPIRY)
       payload = payload.dup
-      now = Time.current.to_i
+      
+      # セキュリティクレームを追加
+      add_standard_claims(payload)
+      
+      # 期限を設定
+      add_expiry_claim(payload, exp)
 
-      # セキュリティ強化のための標準クレーム
+      JWT.encode(payload, SECRET_KEY, ALGORITHM)
+    end
+    
+    # 標準的なセキュリティクレームを追加
+    def add_standard_claims(payload)
+      now = Time.current.to_i
       payload[:iss] = ISSUER            # 発行者
       payload[:aud] = AUDIENCE          # 対象者
       payload[:iat] = now               # 発行時刻
       payload[:nbf] = now               # 有効開始時刻
       payload[:jti] = SecureRandom.uuid # 一意のトークンID
-
-      # expがTimeオブジェクトまたは数値なら適切に処理（修正）
-      payload[:exp] = if exp.is_a?(ActiveSupport::Duration)
+    end
+    
+    # 有効期限クレームを追加
+    def add_expiry_claim(payload, exp)
+      payload[:exp] = calculate_expiry(exp)
+    end
+    
+    # 有効期限を計算
+    def calculate_expiry(exp)
+      if exp.is_a?(ActiveSupport::Duration)
         exp.from_now.to_i
       elsif exp.is_a?(Time)
         exp.to_i
@@ -36,48 +53,48 @@ class JsonWebToken
       else
         TOKEN_EXPIRY.from_now.to_i
       end
-
-      JWT.encode(payload, SECRET_KEY, ALGORITHM)
     end
 
     # JWTトークンのデコード
     def decode(token)
       raise JWT::DecodeError, "Token cannot be blank" if token.blank?
 
-      # verify_issでiss（発行者）を検証
-      # verify_audienceでaud（対象者）を検証
-      # verify_iatで発行時刻を検証
-      # leeway：検証時の時間ずれを許容する秒数
       JWT.decode(
         token,
         SECRET_KEY,
         true,
-        {
-          algorithm: ALGORITHM,
-          verify_iss: true,
-          iss: ISSUER,
-          verify_aud: true,
-          aud: AUDIENCE,
-          verify_iat: true,
-          leeway: 30 # 30秒の時間差を許容
-        }
+        decode_options
       )[0]
-    rescue JWT::ExpiredSignature => e
-      # トークンの有効期限切れ
-      Rails.logger.info "JWT token expired: #{e.message}"
-      raise
-    rescue JWT::InvalidIssuerError => e
-      # 発行者が正しくない
-      Rails.logger.info "Invalid JWT issuer: #{e.message}"
-      raise
-    rescue JWT::InvalidAudError => e
-      # 対象者が正しくない
-      Rails.logger.info "Invalid JWT audience: #{e.message}"
-      raise
     rescue JWT::DecodeError => e
-      # その他のデコードエラー
-      Rails.logger.info "JWT decode error: #{e.message}"
-      raise
+      handle_decode_error(e)
+    end
+    
+    # デコードオプションの生成
+    def decode_options
+      {
+        algorithm: ALGORITHM,
+        verify_iss: true,
+        iss: ISSUER,
+        verify_aud: true,
+        aud: AUDIENCE,
+        verify_iat: true,
+        leeway: 30 # 30秒の時間差を許容
+      }
+    end
+    
+    # デコードエラーのハンドリング
+    def handle_decode_error(error)
+      case error
+      when JWT::ExpiredSignature
+        Rails.logger.info "JWT token expired: #{error.message}"
+      when JWT::InvalidIssuerError
+        Rails.logger.info "Invalid JWT issuer: #{error.message}"
+      when JWT::InvalidAudError
+        Rails.logger.info "Invalid JWT audience: #{error.message}"
+      else
+        Rails.logger.info "JWT decode error: #{error.message}"
+      end
+      raise error # 呼び出し元で処理できるようにエラーを再度発生させる
     end
 
     # コントローラーなどの実際の認証処理で使用するメソッド

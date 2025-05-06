@@ -70,37 +70,59 @@ module Api
       def refresh_token
         # リフレッシュトークンを取得
         refresh_token = extract_refresh_token
-
-        # デバッグログ
         Rails.logger.debug "リフレッシュトークン処理開始: #{refresh_token.present? ? "取得済み" : "未取得"}"
 
         if refresh_token.blank?
           Rails.logger.debug "リフレッシュトークンが見つかりません"
-          return render json: {error: "リフレッシュトークンが見つかりません"}, status: :unauthorized
+          return render_token_error("リフレッシュトークンが見つかりません")
         end
 
+        payload = validate_refresh_token(refresh_token)
+        return if payload.nil? # エラーレスポンスは既にvalidate_refresh_tokenで返されています
+
+        user = find_user_from_payload(payload)
+        return if user.nil? # エラーレスポンスは既にfind_user_from_payloadで返されています
+
+        # 新しいアクセストークンを生成して返す
+        issue_new_token(user)
+      end
+
+      private
+
+      def validate_refresh_token(token)
         # リフレッシュトークンをデコード
-        payload = JsonWebToken.safe_decode(refresh_token)
+        payload = JsonWebToken.safe_decode(token)
         Rails.logger.debug "デコード結果: #{payload.inspect}"
 
         if payload.nil?
           Rails.logger.debug "トークンのデコードに失敗しました"
-          return render json: {error: "無効なリフレッシュトークン"}, status: :unauthorized
+          render_token_error("無効なリフレッシュトークン")
+          return nil
         end
 
         if payload["token_type"] != "refresh"
           Rails.logger.debug "トークンタイプが不正: #{payload["token_type"]}"
-          return render json: {error: "無効なリフレッシュトークン"}, status: :unauthorized
+          render_token_error("無効なリフレッシュトークン")
+          return nil
         end
 
+        payload
+      end
+
+      def find_user_from_payload(payload)
         # ユーザーが存在するか確認
         user = User.find_by(id: payload["user_id"])
 
         if user.nil?
           Rails.logger.debug "ユーザーが見つかりません: ID #{payload["user_id"]}"
-          return render json: {error: "ユーザーが見つかりません"}, status: :unauthorized
+          render_token_error("ユーザーが見つかりません")
+          return nil
         end
 
+        user
+      end
+
+      def issue_new_token(user)
         # 新しいアクセストークンを生成
         new_token = generate_jwt_token(user)
         Rails.logger.debug "新しいトークンを生成しました"
@@ -114,7 +136,9 @@ module Api
         }
       end
 
-      private
+      def render_token_error(message)
+        render json: {error: message}, status: :unauthorized
+      end
 
       def user_params
         # ユーザーパラメータがauthハッシュ内にネストされている場合の対応

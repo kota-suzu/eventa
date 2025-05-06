@@ -8,27 +8,46 @@ class ApplicationController < ActionController::API
 
   # 認証が必要なコントローラーで使用するメソッド
   def authenticate_user
-    # テスト環境では、コントローラテスト用の設定を適用
-    if Rails.env.test? && controller_name == "anonymous"
-      # controller_spec のテスト用コントローラーの場合は認証をスキップせず、ヘッダーから認証情報を取得
-      token = extract_token
-      if token.present?
-        payload = JsonWebToken.safe_decode(token)
-        if payload
-          @current_user = User.find_by(id: payload["user_id"])
-          return true if @current_user
-        end
-      end
-      return render_unauthorized(I18n.t("errors.auth.user_not_found")) unless @current_user
-    elsif Rails.env.test? && controller_name != "auths"
+    if Rails.env.test?
+      handle_test_environment_authentication
+    else 
+      handle_production_authentication
+    end
+  end
+  
+  # テスト環境での認証ハンドリング
+  def handle_test_environment_authentication
+    if controller_name == "anonymous"
+      authenticate_anonymous_controller
+    elsif controller_name != "auths"
       # 通常のテスト環境では従来通り認証をスキップ
       return true
     end
-
-    # 本番/開発環境の場合の処理
+  end
+  
+  # 匿名コントローラーの認証処理（テスト環境）
+  def authenticate_anonymous_controller
+    token = extract_token
+    if token.present?
+      payload = JsonWebToken.safe_decode(token)
+      if payload
+        @current_user = User.find_by(id: payload["user_id"])
+        return true if @current_user
+      end
+    end
+    render_unauthorized(I18n.t("errors.auth.user_not_found")) unless @current_user
+  end
+  
+  # 本番/開発環境の認証処理
+  def handle_production_authentication
     token = extract_token
     return render_unauthorized(I18n.t("errors.auth.missing_token")) if token.blank?
 
+    authenticate_with_token(token)
+  end
+  
+  # トークンを使った認証処理
+  def authenticate_with_token(token)
     payload = JsonWebToken.safe_decode(token)
     return render_unauthorized(I18n.t("errors.auth.invalid_token")) unless payload
 
@@ -46,23 +65,32 @@ class ApplicationController < ActionController::API
     # すでに@current_userが設定されている場合はそれを返す（本番環境対応）
     return @current_user if @current_user
 
-    # テスト環境では特殊なヘッダーから取得を試みる
-    if Rails.env.test?
-      user_id = request.headers["X-Test-User-Id"]
-
-      # ユーザーIDがヘッダーに指定されていない場合は、URLパラメータのevent_idからイベントのオーナーを取得
-      if user_id.blank? && params[:event_id].present?
-        event = Event.find_by(id: params[:event_id])
-        @current_user = event&.user
-      else
-        @current_user = User.find_by(id: user_id)
-      end
-
-      # テスト用ユーザーが見つからない場合は最初のユーザーを返す
-      @current_user ||= User.first
-    end
+    # テスト環境ではカスタムロジックを使用
+    find_user_for_test_environment if Rails.env.test?
 
     @current_user
+  end
+  
+  # テスト環境用のユーザー検索処理
+  def find_user_for_test_environment
+    # テスト用ヘッダーからのユーザーID取得を試みる
+    user_id = request.headers["X-Test-User-Id"]
+
+    if user_id.present?
+      @current_user = User.find_by(id: user_id)
+    elsif params[:event_id].present?
+      # イベントIDからオーナーを検索
+      find_user_from_event
+    end
+
+    # 見つからない場合は最初のユーザーをデフォルトとして使用
+    @current_user ||= User.first
+  end
+  
+  # イベントからユーザーを検索
+  def find_user_from_event
+    event = Event.find_by(id: params[:event_id])
+    @current_user = event&.user
   end
 
   # リクエストからJWTトークンを抽出
