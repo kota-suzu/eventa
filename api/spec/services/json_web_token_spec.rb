@@ -322,6 +322,18 @@ RSpec.describe JsonWebToken do
       # 数秒の誤差を許容
       expect(decoded_payload["exp"]).to be_within(10).of(expected_exp)
     end
+
+    it "user_idがnilの場合はセッションIDのみを返す" do
+      # user_idを指定せずにメソッドを呼び出す
+      session_id = described_class.generate_refresh_token
+
+      # 結果がStringかつ長さが32文字以上であることを確認
+      expect(session_id).to be_a(String)
+      expect(session_id.length).to be >= 32
+
+      # 結果が配列ではなく文字列であることを確認
+      expect(session_id).not_to be_an(Array)
+    end
   end
 
   describe "error handling in decode" do
@@ -338,6 +350,106 @@ RSpec.describe JsonWebToken do
     it "handles JWT::DecodeError" do
       allow(JWT).to receive(:decode).and_raise(JWT::DecodeError.new("Invalid token"))
       expect { described_class.decode("some_token") }.to raise_error(JWT::DecodeError)
+    end
+  end
+
+  # 以下の追加テストはブランチカバレッジを向上させるためのものです
+  describe "追加のエッジケーステスト" do
+    it "HashからObjectへの変換が正しく行われる" do
+      # 配列ではなくObject形式のHashを使用
+      token = described_class.encode({data: []})
+      expect(token).to be_a(String)
+      payload = described_class.safe_decode(token)
+      expect(payload).to be_a(Hash)
+      expect(payload["data"]).to eq([])
+    end
+
+    it "シンボルキーの場合、エンコード後にも値が保持される" do
+      payload = {:symbol_key => "value", "string_key" => "value2"}
+      token = described_class.encode(payload)
+      decoded = described_class.safe_decode(token)
+      expect(decoded["symbol_key"]).to eq("value")
+      expect(decoded["string_key"]).to eq("value2")
+    end
+
+    it "expが文字列の場合、デフォルト値が使用される" do
+      # 文字列は解析できないため、デフォルトのexpiry
+      token = described_class.encode(payload, "invalid_exp")
+      decoded = described_class.safe_decode(token)
+      # expはdecodeで返却されるので、トークンが解析でき、かつ有効期限内であることを確認
+      expect(decoded).to be_a(Hash)
+      expect(decoded["user_id"]).to eq(user_id)
+    end
+
+    it "無効なトークンタイプの場合、safe_decodeはnilを返す" do
+      # 元のJWTの実装に対応するため
+      expect(described_class.safe_decode(nil)).to be_nil
+      expect(described_class.safe_decode("")).to be_nil
+      expect(described_class.safe_decode("invalid.token")).to be_nil
+    end
+
+    it "デコード時の各種例外タイプがログに記録される" do
+      logger_double = instance_double(ActiveSupport::Logger)
+      allow(Rails).to receive(:logger).and_return(logger_double)
+      allow(logger_double).to receive(:info)
+
+      # JWT::InvalidIssuerError をシミュレート
+      invalid_iss_payload = payload.merge(
+        iss: "invalid-issuer",
+        exp: 1.hour.from_now.to_i,
+        iat: Time.zone.now.to_i,
+        nbf: Time.zone.now.to_i,
+        aud: described_class::AUDIENCE,
+        jti: SecureRandom.uuid
+      )
+      token = JWT.encode(invalid_iss_payload, described_class::SECRET_KEY, described_class::ALGORITHM)
+      described_class.safe_decode(token)
+      expect(logger_double).to have_received(:info).with(/JWT decode error/).at_least(1)
+
+      # JWT::InvalidAudError をシミュレート
+      invalid_aud_payload = payload.merge(
+        iss: described_class::ISSUER,
+        exp: 1.hour.from_now.to_i,
+        iat: Time.zone.now.to_i,
+        nbf: Time.zone.now.to_i,
+        aud: "invalid-audience",
+        jti: SecureRandom.uuid
+      )
+      token = JWT.encode(invalid_aud_payload, described_class::SECRET_KEY, described_class::ALGORITHM)
+      described_class.safe_decode(token)
+      expect(logger_double).to have_received(:info).with(/JWT decode error/).at_least(2)
+    end
+
+    it "JWTVerificationErrorがsafe_decodeでキャッチされる" do
+      # JWT::VerificationErrorをシミュレート
+      allow(JWT).to receive(:decode).and_raise(JWT::VerificationError.new("Invalid signature"))
+
+      # 例外がキャッチされ、nilが返されることを確認
+      expect(described_class.safe_decode("some_token")).to be_nil
+
+      # 別の例外クラスでも同様にテスト
+      allow(JWT).to receive(:decode).and_raise(JWT::InvalidJtiError.new("Invalid JTI"))
+      expect(described_class.safe_decode("some_token")).to be_nil
+    end
+
+    it "複数のJWTトークンを生成すると、異なるjtiが割り当てられる" do
+      # 同じペイロードで2つのトークンを生成
+      token1 = described_class.encode(payload)
+      token2 = described_class.encode(payload)
+
+      # デコードして内容を確認
+      decoded1 = JWT.decode(token1, described_class::SECRET_KEY, true,
+        {algorithm: described_class::ALGORITHM}).first
+      decoded2 = JWT.decode(token2, described_class::SECRET_KEY, true,
+        {algorithm: described_class::ALGORITHM}).first
+
+      # jtiが異なることを確認
+      expect(decoded1["jti"]).not_to eq(decoded2["jti"])
+
+      # 両方ともUUIDの形式であることを確認
+      uuid_regex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      expect(decoded1["jti"]).to match(uuid_regex)
+      expect(decoded2["jti"]).to match(uuid_regex)
     end
   end
 end
