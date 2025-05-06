@@ -129,15 +129,22 @@ jobs:
       # テストデータベースのセットアップを追加
       - name: テストデータベースを準備
         run: |
-          # Ridgepoleの代わりにdb:prepareを使用する（より安定した方法）
           echo "📊 データベース準備開始..."
-          bundle exec rails db:prepare RAILS_ENV=test
           
-          # スキーマ確認と詳細診断
+          # データベース作成
+          bundle exec rails db:create RAILS_ENV=test
+          
+          # スキーマを明示的に適用（db:prepareではなくRidgepoleを直接使用）
+          bundle exec ridgepole -c config/database.yml -E test --apply -f db/Schemafile
+          
+          # シードデータのロードをスキップ
+          # bundle exec rails db:seed RAILS_ENV=test
+          
+          # テーブル確認
           echo "📋 テーブル構造の確認"
           bundle exec rails runner 'tables = ActiveRecord::Base.connection.tables.sort; puts "テーブル一覧 (#{tables.size}件): #{tables.join(", ")}"; puts "データベースアダプタ: #{ActiveRecord::Base.connection.adapter_name}"'
           
-          # 主要テーブルの存在確認
+          # 重要テーブルの存在確認
           echo "🔍 重要テーブルの確認"
           bundle exec rails runner 'critical_tables = %w[events users tickets ticket_types]; missing = critical_tables - ActiveRecord::Base.connection.tables; if missing.empty?; puts "✅ 重要テーブルは全て存在します"; else; puts "❌ 不足テーブル: #{missing.join(", ")}"; exit 1; end'
         working-directory: ./api
@@ -208,15 +215,22 @@ jobs:
       # テストデータベースのセットアップを追加
       - name: テストデータベースを準備
         run: |
-          # Ridgepoleの代わりにdb:prepareを使用する（より安定した方法）
           echo "📊 データベース準備開始..."
-          bundle exec rails db:prepare RAILS_ENV=test
           
-          # スキーマ確認と詳細診断
+          # データベース作成
+          bundle exec rails db:create RAILS_ENV=test
+          
+          # スキーマを明示的に適用（db:prepareではなくRidgepoleを直接使用）
+          bundle exec ridgepole -c config/database.yml -E test --apply -f db/Schemafile
+          
+          # シードデータのロードをスキップ
+          # bundle exec rails db:seed RAILS_ENV=test
+          
+          # テーブル確認
           echo "📋 テーブル構造の確認"
           bundle exec rails runner 'tables = ActiveRecord::Base.connection.tables.sort; puts "テーブル一覧 (#{tables.size}件): #{tables.join(", ")}"; puts "データベースアダプタ: #{ActiveRecord::Base.connection.adapter_name}"'
           
-          # 主要テーブルの存在確認
+          # 重要テーブルの存在確認
           echo "🔍 重要テーブルの確認"
           bundle exec rails runner 'critical_tables = %w[events users tickets ticket_types]; missing = critical_tables - ActiveRecord::Base.connection.tables; if missing.empty?; puts "✅ 重要テーブルは全て存在します"; else; puts "❌ 不足テーブル: #{missing.join(", ")}"; exit 1; end'
         working-directory: ./api

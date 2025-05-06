@@ -8,6 +8,18 @@
 #     MovieGenre.find_or_create_by!(name: genre_name)
 #   end
 
+# テーブルの存在確認
+puts "テーブル存在確認を行います..."
+required_tables = %w[users events tickets]
+missing_tables = required_tables - ActiveRecord::Base.connection.tables
+unless missing_tables.empty?
+  puts "⚠️ 以下のテーブルが存在しないため、seedデータの作成をスキップします: #{missing_tables.join(', ')}"
+  puts "ℹ️ スキーマが適用されているか確認してください。"
+  exit(0) # エラーではなく正常終了
+end
+
+puts "✅ 必要なテーブルが全て存在します。seedデータの作成を開始します..."
+
 # 管理者ユーザーの作成
 admin = User.create_with(
   name: "管理者",
