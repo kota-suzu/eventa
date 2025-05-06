@@ -71,6 +71,9 @@ class ApplicationController < ActionController::API
     end
   end
 
+  # authenticate_requestのエイリアス - 後方互換性のため
+  alias_method :authenticate_user!, :authenticate_request
+
   # 現在の認証済みユーザーを取得
   def current_user
     @current_user ||= User.find_by(id: @current_user_id) if @current_user_id
@@ -104,9 +107,17 @@ class ApplicationController < ActionController::API
     }
   end
 
-  # FIXME: CSRFトークン検証の実装
-  # APIでもステートフルセッションを使用する場合は、
-  # CSRF対策が必要
-  # - トークンの生成と検証メカニズム
-  # - 特定エンドポイントでの検証
+  # TODO(!security!important): CSRF対策の実装
+  # APIでもCookieベースの認証を使用しているため、CSRF対策が必要です。
+  # 実装方法:
+  # 1. ActionController::Baseを継承したい場合は、代わりにActionController::APIから
+  #    protect_from_forgeryメソッドを含むモジュールをincludeする
+  # 2. JWTトークンにCSRF対策トークンを含める
+  # 3. フォーム送信時にヘッダーを通じて検証する
+  #
+  # 参考実装:
+  # - includeするモジュール: ActionController::RequestForgeryProtection
+  # - トークン設定: protect_from_forgery with: :exception
+  # - 検証メソッド: verify_authenticity_token
+  # - APIリクエスト例外設定: protect_from_forgery unless: -> { request.format.json? }
 end

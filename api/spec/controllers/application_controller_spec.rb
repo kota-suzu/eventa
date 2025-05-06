@@ -2,7 +2,7 @@ require "rails_helper"
 
 # テスト用のコントローラークラス
 class TestController < ApplicationController
-  skip_before_action :authenticate_user, only: [:public_action]
+  skip_before_action :authenticate_request, only: [:public_action]
 
   def protected_action
     render json: {message: "Success"}
@@ -158,11 +158,11 @@ RSpec.describe ApplicationController, type: :controller do
     end
   end
 
-  describe "#authenticate_user!" do
+  describe "#authenticate_request" do
     it "認証成功時はtrueを返す" do
       token = JsonWebToken.encode({user_id: user.id})
       request.headers["Authorization"] = "Bearer #{token}"
-      expect(controller.send(:authenticate_user!)).to be true
+      expect(controller.send(:authenticate_request)).to be true
     end
 
     context "テストモード以外" do
@@ -192,14 +192,14 @@ RSpec.describe ApplicationController, type: :controller do
         allow(controller).to receive(:controller_name).and_return("anonymous")
         request.headers["Authorization"] = "Bearer invalid_token"
         expect(controller).to receive(:render_unauthorized)
-        controller.send(:authenticate_user!)
+        controller.send(:authenticate_request)
       end
 
       it "controller_name == 'anonymous'の場合で有効なトークンがある場合はtrueを返す" do
         allow(controller).to receive(:controller_name).and_return("anonymous")
         token = JsonWebToken.encode({user_id: user.id})
         request.headers["Authorization"] = "Bearer #{token}"
-        expect(controller.send(:authenticate_user!)).to be true
+        expect(controller.send(:authenticate_request)).to be true
       end
 
       it "controller_name != 'anonymous'かつcontroller_name != 'auths'の場合はtrueを返す" do
@@ -208,7 +208,7 @@ RSpec.describe ApplicationController, type: :controller do
 
         controller_names.each do |name|
           allow(controller).to receive(:controller_name).and_return(name)
-          result = controller.send(:authenticate_user)
+          result = controller.send(:authenticate_request)
           expect(result).to be true
         end
       end
@@ -218,13 +218,14 @@ RSpec.describe ApplicationController, type: :controller do
         allow(controller).to receive(:controller_name).and_return("auths")
 
         # 無効なトークン（空）の場合
-        allow(controller).to receive(:extract_token).and_return(nil)
+        allow(controller).to receive(:extract_token_from_header).and_return(nil)
+        allow(controller).to receive_message_chain(:cookies, :signed).and_return({})
 
         # render_unauthorizedがモックされる
         expect(controller).to receive(:render_unauthorized)
 
         # 認証メソッドを実行
-        controller.send(:authenticate_user)
+        controller.send(:authenticate_request)
       end
 
       # デッドロックを避けるためにトランケーション戦略を使用
@@ -237,10 +238,10 @@ RSpec.describe ApplicationController, type: :controller do
 
         # 有効なトークンがある場合
         token = "valid_token"
-        allow(controller).to receive(:extract_token).and_return(token)
+        allow(controller).to receive(:extract_token_from_header).and_return(token)
         payload = {"user_id" => test_user.id}
-        allow(JsonWebToken).to receive(:safe_decode).with(token).and_return(payload)
-        allow(User).to receive(:find_by).with(id: test_user.id).and_return(test_user)
+        allow(JsonWebToken).to receive(:decode).with(token).and_return(payload)
+        allow(TokenBlacklistService).to receive(:blacklisted?).with(token).and_return(false)
 
         # current_userを設定
         controller.instance_variable_set(:@current_user, test_user)
@@ -249,11 +250,24 @@ RSpec.describe ApplicationController, type: :controller do
         expect(controller).not_to receive(:render_unauthorized)
 
         # 認証メソッドを実行
-        result = controller.send(:authenticate_user)
+        result = controller.send(:authenticate_request)
 
         # ApplicationControllerでcontroller_name == 'auths'の場合は、特殊な処理があり、nilを返すことがあるため
         # テストの期待値を変更します
         expect(result).not_to eq(false)
+      end
+
+      it "ブラックリストに登録されたトークンは認証エラーになる" do
+        # 有効なトークンだがブラックリストに登録されている
+        token = "blacklisted_token"
+        allow(controller).to receive(:extract_token_from_header).and_return(token)
+        allow(TokenBlacklistService).to receive(:blacklisted?).with(token).and_return(true)
+
+        # render_unauthorizedが呼び出されることを確認
+        expect(controller).to receive(:render_unauthorized).with("このトークンは無効化されています")
+
+        # 認証メソッドを実行
+        controller.send(:authenticate_request)
       end
     end
   end
@@ -304,11 +318,14 @@ RSpec.describe ApplicationController, type: :controller do
         json: {error: custom_message},
         status: :unauthorized
       )
-      # todo: テストのカバー率を高める
-      # テストのカバー率を高めるために、カスタムメッセージのテストを追加
       controller.send(:render_unauthorized, custom_message)
     end
   end
+
+  # TODO(!security): トークンブラックリスト関連の機能テスト強化
+  # - 複数デバイスからのログアウト処理のテスト
+  # - ブラックリスト登録後の認証失敗ケース
+  # - Redisサーバー障害時の挙動テスト
 
   # TODO(!documentation): テストカバレッジを高める
   # 以下の領域のテストを追加・強化：
