@@ -27,45 +27,70 @@ jobs:
     runs-on: ubuntu-latest
     
     services:
-      postgres:
-        image: postgres:14
+      mysql:
+        image: mysql:8.0
         env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: eventa_test
+          MYSQL_ROOT_PASSWORD: rootpass
+          MYSQL_DATABASE: eventa_test
         ports:
-          - 5432:5432
+          - 3306:3306
         options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+          --health-cmd="mysqladmin ping -h localhost -prootpass"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
     
     env:
       RAILS_ENV: test
-      DATABASE_URL: postgres://postgres:postgres@localhost:5432/eventa_test
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: rootpass
+      DB_NAME: eventa_test
       JWT_SECRET_KEY: test_jwt_secret_for_ci_pipeline
       JWT_EXPIRATION_HOURS: 24
       JWT_REFRESH_EXPIRATION_DAYS: 30
+      # Ridgepole用のデバッグ出力を有効化
+      RIDGEPOLE_DEBUG: 1
     
     steps:
       - name: ソースコードをチェックアウト
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       
-      - name: Ruby をセットアップ
+      # 1) Install Ruby (skip bundle)
+      - name: Ruby をセットアップ (bundle なし)
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: "3.2"
+          ruby-version: "3.2.2"
+          bundler-cache: false
+          working-directory: ./api
+
+      # 2) プラットフォーム情報の追加
+      - name: x86_64-linux プラットフォームを追加
+        run: bundle lock --add-platform x86_64-linux
+        working-directory: ./api
+
+      # 3) キャッシュを使用したgemのインストール
+      - name: Bundle インストール (キャッシュ)
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.2.2"
           bundler-cache: true
+          working-directory: ./api
       
-      - name: 依存関係をインストール
+      # bundlerの設定
+      - name: Bundler設定
         run: |
-          bundle install
+          gem update --system
+          bundle config set --local without "production"
+          bundle install --jobs 4 --retry 3
+        working-directory: ./api
       
       - name: データベースをセットアップ
         run: |
-          bundle exec rails db:create
-          bundle exec rails db:schema:load
+          bundle exec rails db:create RAILS_ENV=test
+          bundle exec ridgepole -c config/database.yml -E test --apply -f db/Schemafile
+        working-directory: ./api
       
       - name: 認証関連のRSpecテストを実行
         run: |
@@ -76,6 +101,7 @@ jobs:
             spec/requests/api/v1/auth_api_coverage_spec.rb \
             spec/security/auth_security_spec.rb \
             --format documentation
+        working-directory: ./api
       
       - name: テストカバレッジを確認
         run: |
@@ -85,27 +111,30 @@ jobs:
             spec/requests/api/v1/auths_controller_spec.rb \
             spec/requests/api/v1/auth_api_coverage_spec.rb \
             spec/security/auth_security_spec.rb
+        working-directory: ./api
       
       - name: カバレッジレポートをアップロード
         uses: actions/upload-artifact@v3
         with:
           name: coverage-report
-          path: coverage
+          path: ./api/coverage
       
       - name: カバレッジをコメントに追加
         uses: MishaKav/jest-coverage-comment@main
         with:
           title: 認証システムテストカバレッジ
           badge-title: カバレッジ
-          coverage-path: ./coverage/lcov.info
+          coverage-path: ./api/coverage/lcov.info
           coverage-threshold: 80
       
       - name: テスト成功時の通知
         if: success()
         run: |
           echo "認証システムのテストが成功しました！"
+        working-directory: ./api
       
       - name: テスト失敗時の通知
         if: failure()
         run: |
-          echo "認証システムのテストが失敗しました。ログを確認してください。" 
+          echo "認証システムのテストが失敗しました。ログを確認してください。"
+        working-directory: ./api

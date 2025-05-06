@@ -97,6 +97,8 @@ jobs:
       DB_PASSWORD: rootpass
       DB_NAME: eventa_test
       REDIS_URL: redis://localhost:6379/1
+      # Ridgepole用のデバッグ出力を有効化
+      RIDGEPOLE_DEBUG: 1
     steps:
       - uses: actions/checkout@v4
 
@@ -124,6 +126,13 @@ jobs:
           gem update --system
           bundle config set --local without "production"
           bundle install --jobs 4 --retry 3
+        working-directory: ./api
+
+      # テストデータベースのセットアップを追加
+      - name: Set up test database
+        run: |
+          bundle exec rails db:create RAILS_ENV=test
+          bundle exec ridgepole -c config/database.yml -E test --apply -f db/Schemafile
         working-directory: ./api
 
       - name: RSpec with SimpleCov
@@ -160,6 +169,8 @@ jobs:
       DB_PASSWORD: rootpass
       DB_NAME: eventa_test
       PARALLEL_TEST_PROCESSORS: 4
+      # Ridgepole用のデバッグ出力を有効化
+      RIDGEPOLE_DEBUG: 1
     steps:
       - uses: actions/checkout@v4
 
@@ -187,6 +198,13 @@ jobs:
           gem update --system
           bundle config set --local without "production"
           bundle install --jobs 4 --retry 3
+        working-directory: ./api
+
+      # テストデータベースのセットアップを追加
+      - name: Set up test database
+        run: |
+          bundle exec rails db:create RAILS_ENV=test
+          bundle exec ridgepole -c config/database.yml -E test --apply -f db/Schemafile
         working-directory: ./api
 
       - name: Install parallel_tests

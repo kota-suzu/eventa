@@ -196,6 +196,32 @@ diagnose: ## 🩺 環境診断
 	@echo
 	@echo "依存関係の問題がある場合は 'make setup' を実行してください"
 
+diagnose-db: ## 🔍 データベーススキーマ診断
+	$(banner) "データベーススキーマ診断"
+	@echo "開発環境スキーマ適用状況:"
+	-$(RIDGEPOLE) --apply --dry-run -f db/Schemafile | grep -v "Table Options" || true
+	@echo "\nテスト環境スキーマ適用状況:"
+	-$(COMPOSE) exec -e RAILS_ENV=test api bundle exec ridgepole -c config/database.yml -E test --apply --dry-run -f db/Schemafile | grep -v "Table Options" || true
+	@echo "\nテスト環境テーブル一覧:"
+	-$(COMPOSE) exec -e RAILS_ENV=test api bundle exec rails runner 'puts ActiveRecord::Base.connection.tables.sort'
+	@echo "\nデータベースアダプタの確認:"
+	-$(COMPOSE) exec -e RAILS_ENV=test api bundle exec rails runner 'puts "テスト環境DB: #{ActiveRecord::Base.connection.adapter_name}"'
+	@echo "\033[1;32m✓ データベース診断完了\033[0m"
+
+check-ci-db: ## 🔍 CI環境用データベース設定確認
+	$(banner) "CI環境データベース設定確認"
+	@echo "現在の設定:"
+	-$(COMPOSE) exec api bundle exec rails runner 'config = Rails.configuration.database_configuration["test"]; puts "Adapter: #{config["adapter"] || "未設定"}"; puts "Host: #{config["host"] || "未設定"}"; puts "Database: #{config["database"] || "未設定"}"'
+	@echo "\nMySQL接続テスト:"
+	-$(COMPOSE) exec -e RAILS_ENV=test api bundle exec rails runner 'begin; puts "接続成功: #{ActiveRecord::Base.connection.execute("SELECT 1").to_a.inspect}"; rescue => e; puts "接続エラー: #{e.message}"; end'
+	@echo "\033[1;32m✓ CI環境データベース確認完了\033[0m"
+
+repair-test-db: ## 🔧 テスト環境のデータベースを修復
+	$(banner) "テスト環境データベース修復"
+	$(COMPOSE) exec -e RAILS_ENV=test api bundle exec rails db:drop db:create
+	$(COMPOSE) exec -e RAILS_ENV=test api bundle exec ridgepole -c config/database.yml -E test --apply -f db/Schemafile
+	@echo "\033[1;32m✓ テスト環境データベース修復完了\033[0m"
+
 repair: ## 🔧 依存関係の修復
 	$(banner) "依存関係の修復を実行しています"
 	$(banner) "バックエンド修復"

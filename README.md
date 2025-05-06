@@ -23,13 +23,18 @@ Eventaは、イベント管理・予約システムです。
 git clone https://github.com/your-organization/eventa.git
 cd eventa
 
+# Docker環境のセットアップ（推奨）
+make setup
+
+# または手動セットアップ
 # 依存関係のインストール
 bundle install
 
-# データベースのセットアップ
+# データベースのセットアップ（MySQL）
 rails db:create
-rails db:migrate
-rails db:seed
+# リッジポールを使用したスキーマ適用
+bundle exec ridgepole -c config/database.yml -E development --apply -f db/Schemafile
+bundle exec ridgepole -c config/database.yml -E test --apply -f db/Schemafile
 
 # サーバーの起動
 rails s
@@ -52,7 +57,7 @@ Eventaは以下の技術スタックで構築されています：
 
 - **バックエンド**: Ruby on Rails APIモード
 - **フロントエンド**: React + TypeScript
-- **データベース**: PostgreSQL
+- **データベース**: MySQL 8.0
 - **キャッシュ**: Redis
 - **認証**: JWT (JSON Web Tokens)
 
@@ -129,6 +134,7 @@ COVERAGE=true bundle exec rspec
 - [データベース設計](docs/design/database_design.md)
 - [認証設計](docs/design/auth_design.md)
 - [デプロイメントガイド](docs/guides/deployment.md)
+- [CI環境のトラブルシューティング](docs/guides/ci_troubleshooting.md)
 
 ## 貢献方法
 
