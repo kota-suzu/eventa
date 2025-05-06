@@ -1,0 +1,36 @@
+name: TODO to Issue
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths-ignore:
+      # 自動生成ファイルや頻繁に変更されるファイルを除外
+      - 'api/db/schema.rb'
+      - 'api/vendor/**'
+      - 'api/log/**'
+      - 'api/tmp/**'
+      - 'api/coverage/**'
+      - 'frontend/node_modules/**'
+      - 'frontend/.next/**'
+      - 'frontend/coverage/**'
+      - '**/*.lock'
+      - '**/*.md'
+
+jobs:
+  todo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 差分検出のために完全履歴が必要
+
+      # TODOコメントをIssue化
+      - name: Convert TODO / FIXME to Issues
+        uses: alstr/todo-to-issue-action@v5
+        with:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMMENT_PATTERN: 'TODO|FIXME|OPTIMIZE|HACK|NOTE'  # 拡張キーワード
+          LABEL: 'todo'
+          CLOSE_ISSUES: true
+          AUTO_ASSIGN: 'kota-suzu'  # チームのデフォルト担当者（必要に応じて変更）
+          INCLUDE_PATTERN: '*.rb|*.js|*.jsx|*.ts|*.tsx|*.yml|*.yaml|Makefile|Dockerfile*|*.css|*.scss|*.html|*.erb'  # コード関連ファイルのみ対象 

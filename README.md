@@ -154,6 +154,7 @@ COVERAGE=true bundle exec rspec
 - [認証設計](docs/design/auth_design.md)
 - [デプロイメントガイド](docs/guides/deployment.md)
 - [CI環境のトラブルシューティング](docs/guides/ci_troubleshooting.md)
+- [TODOコメントガイド](docs/guides/todo-comments.md) - コード内のTODOコメントが自動的にGitHub Issueに変換される仕組み
 
 ## 貢献方法
 
