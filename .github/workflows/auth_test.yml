@@ -55,7 +55,7 @@ jobs:
       - name: Ruby をセットアップ
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.2'
+          ruby-version: "3.2"
           bundler-cache: true
       
       - name: 依存関係をインストール

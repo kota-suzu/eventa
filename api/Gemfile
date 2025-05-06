@@ -65,7 +65,7 @@ gem "redis", "~> 5.4"
 # 開発・テスト環境での依存関係
 group :development, :test do
   # 警告・エラーをハイライト表示
-  if Gem::Version.new(RUBY_VERSION) >= Gem::Version.new('3.3.0')
+  if Gem::Version.new(RUBY_VERSION) >= Gem::Version.new("3.3.0")
     gem "error_highlight", ">= 0.6.0", platforms: [:ruby]
   end
 
