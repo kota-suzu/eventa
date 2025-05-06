@@ -34,12 +34,12 @@ jobs:
           IDENTIFIERS: |
             [
               {"name": "TODO", "labels": ["todo"]},
-              {"name": "TODO(!enhancement)", "labels": ["todo", "enhancement"]},
-              {"name": "TODO(!security)", "labels": ["todo", "security"]},
-              {"name": "TODO(!feature)", "labels": ["todo", "feature"]},
-              {"name": "TODO(!urgent)", "labels": ["todo", "urgent"]},
-              {"name": "TODO(!backend)", "labels": ["todo", "backend"]},
-              {"name": "TODO(!frontend)", "labels": ["todo", "frontend"]},
+              {"name": "TODO\\(!enhancement\\)", "labels": ["todo", "enhancement"]},
+              {"name": "TODO\\(!security\\)", "labels": ["todo", "security"]},
+              {"name": "TODO\\(!feature\\)", "labels": ["todo", "feature"]},
+              {"name": "TODO\\(!urgent\\)", "labels": ["todo", "urgent"]},
+              {"name": "TODO\\(!backend\\)", "labels": ["todo", "backend"]},
+              {"name": "TODO\\(!frontend\\)", "labels": ["todo", "frontend"]},
               {"name": "FIXME", "labels": ["bug", "fix-needed"]},
               {"name": "OPTIMIZE", "labels": ["performance"]},
               {"name": "HACK", "labels": ["tech-debt"]},
@@ -59,4 +59,4 @@ jobs:
             **/*.md
 
 # TODO: スケジュール実行の追加を検討する
-# 定期的に全コードベースをスキャンし、漏れなくTODOコメントをIssue化する 
+# 定期的に全コードベースをスキャンし、漏れなくTODOコメントをIssue化する
