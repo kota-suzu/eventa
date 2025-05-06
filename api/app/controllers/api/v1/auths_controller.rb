@@ -113,16 +113,25 @@ module Api
       # OAuth2ベースのソーシャルログイン（Google、GitHub、Twitterなど）を追加。
       # 既存アカウントとの連携機能も含める。
 
-      # TODO(!security): ログアウト時のトークン無効化機能を実装
-      # ログアウト時にJWTトークンを無効化し、リフレッシュトークンも削除する。
-      # Redisベースのブラックリスト方式を使用。
-
       # ログアウト処理
       def logout
-        # TODO: ログアウト時のトークン無効化機能を実装
-        # 現在はクライアント側でのトークン削除のみに依存している
-        # - セッションID(jti)をブラックリストに追加
-        # - Redis等を使用した無効化リスト管理
+        # 現在のアクセストークンをブラックリストに追加
+        token = extract_current_token
+        if token.present?
+          TokenBlacklistService.add(token, "logout")
+          Rails.logger.info "Token blacklisted for user ID: #{@current_user_id}"
+        end
+
+        # リフレッシュトークンを取得して削除
+        refresh_token = extract_refresh_token
+        if refresh_token.present?
+          TokenBlacklistService.remove_refresh_token(refresh_token)
+          Rails.logger.info "Refresh token removed for user ID: #{@current_user_id}"
+        end
+
+        # Cookieからトークンを削除
+        delete_auth_cookies
+
         render json: {message: "ログアウトしました"}, status: :ok
       end
 
@@ -276,6 +285,19 @@ module Api
         # データベースに保存して管理する
 
         [token, refresh_token, session_id]
+      end
+
+      # 現在のJWTトークンを取得
+      def extract_current_token
+        header = request.headers["Authorization"]
+        token_from_header = extract_token_from_header(header)
+        token_from_header || cookies.signed[:jwt]
+      end
+
+      # Cookie認証情報の削除
+      def delete_auth_cookies
+        cookies.delete(:jwt)
+        cookies.delete(:refresh_token)
       end
     end
   end

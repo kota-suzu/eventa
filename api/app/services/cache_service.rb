@@ -30,15 +30,15 @@ class CacheService
         yield
       end
     end
-    
+
     def invalidate(key_pattern)
       # 指定パターンに一致するキャッシュを無効化
       # TODO: 実装
     end
-    
+
     def warm_cache(resource_type)
       # よく使われるリソースのキャッシュを事前に温めておく
       # TODO: 実装
     end
   end
-end 
+end

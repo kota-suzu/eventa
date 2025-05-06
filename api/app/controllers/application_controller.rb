@@ -54,6 +54,12 @@ class ApplicationController < ActionController::API
       return render_unauthorized
     end
 
+    # ブラックリストされたトークンかどうかをチェック
+    if TokenBlacklistService.blacklisted?(token)
+      Rails.logger.info "Blacklisted token detected: #{request.remote_ip}"
+      return render_unauthorized("このトークンは無効化されています")
+    end
+
     begin
       # トークンをデコード
       decoded_token = JsonWebToken.decode(token)

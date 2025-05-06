@@ -179,6 +179,57 @@ RSpec.describe "Api::V1::Auths", type: :request do
     end
   end
 
+  describe "POST /api/v1/auths/logout" do
+    let!(:user) { create(:user) }
+    let(:token) { JsonWebToken.encode({user_id: user.id}) }
+    let(:refresh_token) { JsonWebToken.generate_refresh_token(user.id)[0] }
+
+    before do
+      # 認証ヘッダーをセット
+      @auth_headers = {"Authorization" => "Bearer #{token}"}
+    end
+
+    it "ログアウト時にトークンをブラックリストに追加する" do
+      # TokenBlacklistServiceのモックを作成
+      expect(TokenBlacklistService).to receive(:add).with(token, "logout").and_return(true)
+
+      post "/api/v1/auths/logout", headers: @auth_headers
+      expect(response).to have_http_status(:ok)
+      expect(json_response["message"]).to include("ログアウトしました")
+    end
+
+    it "ログアウト時にリフレッシュトークンを削除する" do
+      # リフレッシュトークンをCookieにセット
+      cookies[:refresh_token] = refresh_token
+
+      # リフレッシュトークンの削除処理をモック
+      expect(TokenBlacklistService).to receive(:remove_refresh_token).with(refresh_token).and_return(true)
+
+      post "/api/v1/auths/logout", headers: @auth_headers
+      expect(response).to have_http_status(:ok)
+    end
+
+    it "ログアウト時に認証Cookieを削除する" do
+      # Cookieをセット
+      cookies.signed[:jwt] = token
+      cookies.signed[:refresh_token] = refresh_token
+
+      post "/api/v1/auths/logout", headers: @auth_headers
+
+      # レスポンスのCookieをチェック
+      expect(cookies[:jwt]).to be_nil
+      expect(cookies[:refresh_token]).to be_nil
+    end
+
+    it "トークンがなくてもログアウトできる" do
+      # 認証をスキップさせてリクエスト
+      allow_any_instance_of(Api::V1::AuthsController).to receive(:authenticate_request).and_return(true)
+
+      post "/api/v1/auths/logout"
+      expect(response).to have_http_status(:ok)
+    end
+  end
+
   # レスポンスをJSONとしてパースするヘルパーメソッド
   def json_response
     JSON.parse(response.body)
