@@ -16,6 +16,10 @@ on:
 jobs:
   todo:
     runs-on: ubuntu-latest
+    # GitHub IssueへのWrite権限を追加
+    permissions:
+      issues: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
         with:
@@ -26,11 +30,33 @@ jobs:
         uses: alstr/todo-to-issue-action@v5
         with:
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          COMMENT_PATTERN: 'TODO|FIXME|OPTIMIZE|HACK|NOTE'  # 拡張キーワード
-          LABEL: 'todo'
+          # 旧式のCOMMENT_PATTERNからIDENTIFIERSへ移行
+          IDENTIFIERS: |
+            [
+              {"name": "TODO", "labels": ["todo"]},
+              {"name": "TODO(!enhancement)", "labels": ["todo", "enhancement"]},
+              {"name": "TODO(!security)", "labels": ["todo", "security"]},
+              {"name": "TODO(!feature)", "labels": ["todo", "feature"]},
+              {"name": "TODO(!urgent)", "labels": ["todo", "urgent"]},
+              {"name": "TODO(!backend)", "labels": ["todo", "backend"]},
+              {"name": "TODO(!frontend)", "labels": ["todo", "frontend"]},
+              {"name": "FIXME", "labels": ["bug", "fix-needed"]},
+              {"name": "OPTIMIZE", "labels": ["performance"]},
+              {"name": "HACK", "labels": ["tech-debt"]},
+              {"name": "NOTE", "labels": ["documentation"]}
+            ]
+          # 課題が解決されたらIssueを自動的に閉じる
           CLOSE_ISSUES: true
-          AUTO_ASSIGN: 'kota-suzu'  # チームのデフォルト担当者（必要に応じて変更）
-          INCLUDE_PATTERN: '*.rb|*.js|*.jsx|*.ts|*.tsx|*.yml|*.yaml|Makefile|Dockerfile*|*.css|*.scss|*.html|*.erb'  # コード関連ファイルのみ対象
+          # 生成されたIssueのURLをコメントに挿入
+          INSERT_ISSUE_URLS: true
+          # チームのデフォルト担当者
+          AUTO_ASSIGN: 'kota-suzu'
+          # 対象外のファイルやディレクトリ（INCLUDE_PATTERNの代わり）
+          IGNORE: |
+            node_modules/
+            vendor/
+            **/*.lock
+            **/*.md
 
 # TODO: スケジュール実行の追加を検討する
 # 定期的に全コードベースをスキャンし、漏れなくTODOコメントをIssue化する 
