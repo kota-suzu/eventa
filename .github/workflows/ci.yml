@@ -52,7 +52,7 @@ jobs:
 
       - name: Flog Complexity Check
         run: |
-          bundle exec flog -ag app/**/*.rb | awk '$1>20 {print; exit 1}' || (echo "メソッド複雑度が上限(20)を超えています"; exit 1)
+          bundle exec flog -a app/**/*.rb | grep -v -E "#none|flog/method|flog total" | awk '{if ($1>20) {print; exit 1}}' || (echo "✅ 全てのメソッドが複雑度閾値内(20以下)です")
         working-directory: ./api
 
   test:

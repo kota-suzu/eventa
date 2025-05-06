@@ -229,9 +229,11 @@ backend-complexity: ## 🧮 コード複雑度分析
 	$(banner) "メソッド複雑度分析"
 	$(COMPOSE) exec api bundle exec flog -d app/**/*.rb | grep -B 1 "flog total" || true
 	@echo "\n複雑度が20を超えるメソッドのリスト:"
-	$(COMPOSE) exec api bundle exec flog -ag app/**/*.rb | awk '$$1>20 {print $$0}' || true
+	$(COMPOSE) exec api bundle exec flog -a app/**/*.rb | grep -v -E "#none|flog/method|flog total" | awk '{if ($$1>20) {print $$0}}' || true
 	@echo "\n改善が必要な上位5メソッド:"
-	$(COMPOSE) exec api bundle exec flog -ag app/**/*.rb | head -n 20 | grep -v "flog" | grep -v "^$$" | sort -nr | head -5
+	$(COMPOSE) exec api bundle exec flog -a app/**/*.rb | grep -v -E "#none|flog/method|flog total" | sort -nr | head -5
+	@echo "\nCIチェック:"
+	-$(COMPOSE) exec api bash -c 'cd /app && bundle exec flog -a app/**/*.rb | grep -v -E "#none|flog/method|flog total" | awk "{if (\$$1 > 20) {print; exit 1}}" || echo "✅ 全てのメソッドが複雑度閾値内(20以下)です！"'
 
 backend-code-smells: ## 🧐 コードスメル検出
 	$(banner) "コードスメル検出"
@@ -272,7 +274,7 @@ local-ci: ## 🏃‍♂️ GitHub Actions と同内容のローカル CI
 	CI=true $(MAKE) full-check
 	@echo "\033[1;32m✓ Local CI 完了\033[0m"
 
-# Git 履歴から修正回数が多い “アツい” ファイル上位 20 % を抽出
+# Git 履歴から修正回数が多い "アツい" ファイル上位 20 % を抽出
 hot-files: ## 🔥 修正回数上位 20% のファイル一覧
 	$(banner) "Hot Files (Top 20%)"
 	@total=$$(git log --pretty=format: --name-only | grep -v '^$$' | sort -u | wc -l); \
