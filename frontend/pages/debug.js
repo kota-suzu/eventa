@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { testApiConnection, api as authApi } from '../utils/auth';
 import apiClient from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -21,28 +21,31 @@ const DebugPage = () => {
   const api = selectedApiClient === 'auth' ? authApi : apiClient;
 
   // API設定情報
-  const apiConfig = {
-    auth: {
-      baseURL: authApi.defaults.baseURL,
-      withCredentials: authApi.defaults.withCredentials,
-      headers: authApi.defaults.headers,
-    },
-    api: {
-      baseURL: apiClient.defaults.baseURL,
-      withCredentials: apiClient.defaults.withCredentials,
-      headers: apiClient.defaults.headers,
-    },
-    envVars: {
-      NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || '未設定',
-      NODE_ENV: process.env.NODE_ENV || '未設定',
-    },
-  };
+  const apiConfig = useMemo(
+    () => ({
+      auth: {
+        baseURL: authApi.defaults.baseURL,
+        withCredentials: authApi.defaults.withCredentials,
+        headers: authApi.defaults.headers,
+      },
+      api: {
+        baseURL: apiClient.defaults.baseURL,
+        withCredentials: apiClient.defaults.withCredentials,
+        headers: apiClient.defaults.headers,
+      },
+      envVars: {
+        NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || '未設定',
+        NODE_ENV: process.env.NODE_ENV || '未設定',
+      },
+    }),
+    []
+  ); // 空の依存配列で一度だけ生成
 
   // APIの設定情報を表示
   useEffect(() => {
     console.log('デバッグページ - API設定情報:', apiConfig);
     console.log('現在選択中のAPIクライアント:', selectedApiClient);
-  }, [selectedApiClient]);
+  }, [selectedApiClient, apiConfig]);
 
   // API接続テスト
   const runConnectionTest = async () => {

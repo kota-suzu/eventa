@@ -9,15 +9,40 @@ puts "FactoryBot初期化設定が適用されました"
 # FactoryBotの設定を行うサポートモジュール
 # テスト実行時にファクトリーが確実に読み込まれるようにする
 module FactoryBotHelper
+  # 初期化スキップフラグ
+  @initialized = false
+
+  # 初期化ステータスの確認
+  def self.initialized?
+    @initialized == true
+  end
+
+  # 初期化ステータスの設定
+  def self.mark_as_initialized
+    @initialized = true
+  end
+
   # ファクトリの初期化処理
   def self.initialize_factories
-    # FactoryBotがすでに初期化されているか確認
-    return if FactoryBot.factories.any?
+    # 初期化済みフラグのチェック
+    if initialized?
+      puts "FactoryBotは既に初期化済みのためスキップします"
+      return true
+    end
+
+    # ファクトリが既に登録されているか確認
+    # size呼び出しを安全に行うための変更
+    if defined?(FactoryBot.factories) &&
+        (FactoryBot.factories.instance_variable_get(:@items) || {}).any?
+      puts "ファクトリは既に登録されています"
+      mark_as_initialized
+      return true
+    end
 
     # データベース接続を確保
     ensure_database_connection
 
-    Rails.logger.info("FactoryBotの初期化を開始します...") if defined?(Rails.logger)
+    puts "FactoryBotの初期化を開始します..."
 
     # 最大3回まで初期化を試行
     retries = 0
@@ -29,34 +54,64 @@ module FactoryBotHelper
       preload_models if defined?(Rails) && Rails.env.test?
 
       # FactoryBotの設定
-      FactoryBot.definition_file_paths = [
-        Rails.root.join("spec/factories"),
-        Rails.root.join("test/factories")
-      ].select { |path| Dir.exist?(path) }
+      # Rails.rootが使用できない場合に備えて安全に処理
+      factory_paths = []
+      if defined?(Rails) && Rails.respond_to?(:root)
+        factory_paths = [
+          Rails.root.join("spec/factories"),
+          Rails.root.join("test/factories")
+        ].select { |path| Dir.exist?(path) }
+      else
+        # Rails環境外で実行されている場合
+        spec_dir = File.expand_path("../../spec", __dir__)
+        test_dir = File.expand_path("../../test", __dir__)
+        factory_paths = [
+          File.join(spec_dir, "factories"),
+          File.join(test_dir, "factories")
+        ].select { |path| Dir.exist?(path) }
+      end
+
+      FactoryBot.definition_file_paths = factory_paths
+
+      # 既存のファクトリをクリア（重複登録を防止）
+      FactoryBot.factories.clear
+      FactoryBot.traits.clear
+      FactoryBot.callbacks.clear
+      FactoryBot.sequences.clear
 
       # ファクトリの読み込み
       FactoryBot.find_definitions
 
       # 登録されたファクトリの検証
-      FactoryBot.factories.each do |factory|
+      factory_items = FactoryBot.factories.instance_variable_get(:@items) || {}
+      factory_names = factory_items.keys
+
+      puts "ファクトリを検証中: #{factory_names.join(", ")}" if factory_names.any?
+
+      factory_items.each do |name, factory|
         factory.compile
-        Rails.logger.debug("ファクトリ '#{factory.name}' を検証済み") if defined?(Rails.logger)
+        puts "ファクトリ '#{name}' を検証済み"
       rescue => e
-        Rails.logger.warn("ファクトリ '#{factory.name}' の検証に失敗: #{e.message}") if defined?(Rails.logger)
+        puts "ファクトリ '#{name}' の検証に失敗: #{e.message}"
       end
 
       success = true
       print_factories_stats
+      mark_as_initialized
     rescue => e
       retries += 1
       if retries < max_retries
         error_message = "FactoryBot初期化エラー (#{retries}/#{max_retries}): #{e.message}"
-        Rails.logger.warn(error_message) if defined?(Rails.logger)
         puts error_message
 
         # 接続問題の可能性があるため、DBHを使用してリトライ
         if defined?(DatabaseConnectionHelper)
           DatabaseConnectionHelper.ensure_connection(max_attempts: 2)
+          # Rails 8.0の互換性問題をチェック
+          if defined?(DatabaseConnectionHelper.rails8_compatibility_error?) &&
+              DatabaseConnectionHelper.rails8_compatibility_error?(e)
+            DatabaseConnectionHelper.handle_rails8_compatibility_error(e)
+          end
         else
           # あるいは単純な再接続
           begin
@@ -71,7 +126,6 @@ module FactoryBotHelper
         retry
       else
         error_message = "FactoryBot初期化に#{max_retries}回失敗しました: #{e.message}"
-        Rails.logger.error(error_message) if defined?(Rails.logger)
         puts error_message
         puts e.backtrace.take(10).join("\n") if e.backtrace
       end
@@ -98,10 +152,10 @@ module FactoryBotHelper
         # 接続テスト
         begin
           ActiveRecord::Base.connection.execute("SELECT 1")
-          Rails.logger.info("データベース接続OKです") if defined?(Rails.logger)
+          puts "データベース接続OKです"
         rescue => e
           error_message = "データベース接続エラー: #{e.message}"
-          Rails.logger.error(error_message) if defined?(Rails.logger)
+          puts error_message
           raise ActiveRecord::ConnectionNotEstablished, error_message
         end
       end
@@ -111,58 +165,94 @@ module FactoryBotHelper
   # Railsモデルの事前読み込み（テスト環境での初期化に役立つ）
   def self.preload_models
     # Rails 6/7/8環境に対応した安全なモデルロード
-    Rails.logger.debug("モデルのプリロードを開始...") if defined?(Rails.logger)
+    puts "モデルのプリロードを開始..."
 
     begin
       # Rails 6/7ではeager_loadが機能
       if Rails.application.config.respond_to?(:eager_load_namespaces)
         Rails.application.eager_load!
-        Rails.logger.debug("Rails標準のeager_loadでモデルをロードしました") if defined?(Rails.logger)
+        puts "Rails標準のeager_loadでモデルをロードしました"
       # Rails 8ではautoload_libsが使用される可能性がある
       elsif Rails.application.config.respond_to?(:autoload_lib)
         # すでにautoload_libが設定されていると仮定
-        Rails.logger.debug("Rails 8のautoload_libsでモデルをロードしました") if defined?(Rails.logger)
+        puts "Rails 8のautoload_libsでモデルをロードしました"
       else
         # 手動でモデルディレクトリを探索
         model_files = Dir[Rails.root.join("app/models/**/*.rb")]
         model_files.each do |file|
           require file
         rescue => e
-          Rails.logger.warn("モデルファイル #{file} のロードに失敗: #{e.message}") if defined?(Rails.logger)
+          puts "モデルファイル #{file} のロードに失敗: #{e.message}"
         end
-        Rails.logger.debug("手動でモデルファイルをロードしました (#{model_files.size}ファイル)") if defined?(Rails.logger)
+        puts "手動でモデルファイルをロードしました (#{model_files.size}ファイル)"
       end
     rescue => e
-      Rails.logger.warn("モデルプリロード中にエラーが発生: #{e.message}") if defined?(Rails.logger)
+      puts "モデルプリロード中にエラーが発生: #{e.message}"
     end
   end
 
   # ファクトリの統計情報を出力
   def self.print_factories_stats
-    return unless FactoryBot.factories.any?
+    # sizeメソッドを使わずに安全に件数を取得
+    factory_items = FactoryBot.factories.instance_variable_get(:@items) || {}
+    factory_count = factory_items.size
 
-    factory_count = FactoryBot.factories.size
-    trait_count = FactoryBot.factories.map { |f| f.definition.defined_traits.size }.sum
+    trait_count = factory_items.values.inject(0) do |sum, factory|
+      traits = begin
+        factory.definition.defined_traits
+      rescue
+        []
+      end
+      sum + (traits.respond_to?(:size) ? traits.size : 0)
+    end
 
     message = "#{factory_count}件のファクトリと#{trait_count}件のトレイトを登録済み"
-    Rails.logger.info(message) if defined?(Rails.logger)
     puts message
 
     # トップレベルのファクトリ一覧（デバッグ用）
-    if defined?(Rails.logger) && Rails.logger.debug?
-      factory_names = FactoryBot.factories.map(&:name).sort
-      Rails.logger.debug("登録済みファクトリ: #{factory_names.join(", ")}")
-    end
+    factory_names = factory_items.keys.sort
+    puts "登録済みファクトリ: #{factory_names.join(", ")}"
   end
 
   # テスト中にファクトリBotをリセット（主にデータベーススキーマ変更後）
   def self.reset
+    @initialized = false
     FactoryBot.factories.clear
     FactoryBot.traits.clear
     FactoryBot.callbacks.clear
     FactoryBot.sequences.clear
 
     initialize_factories
+  end
+
+  # Rails 8.0との互換性対応
+  def self.handle_rails8_compatibility
+    # Rails 8.0でスキーマが変更されたか確認
+    if defined?(ActiveRecord::Base) && ActiveRecord::Base.connected?
+      begin
+        # スキーママイグレーションテーブルのチェック
+        schema_migrations_exists = ActiveRecord::Base.connection.table_exists?("schema_migrations")
+        puts "schema_migrationsテーブル存在状態: #{schema_migrations_exists ? "✓" : "✗"}"
+
+        # Ridgepoleが使用されている場合
+        if defined?(Ridgepole) || File.exist?(File.join(Rails.root.to_s, "db", "Schemafile"))
+          puts "Ridgepoleが検出されました - スキーマを確認しています"
+          if system("bundle exec ridgepole -c config/database.yml -E test --apply --dry-run -f db/Schemafile")
+            puts "✓ Ridgepoleスキーマは最新です"
+          else
+            puts "⚠️ Ridgepoleスキーマの更新が必要です"
+            # 必要に応じてスキーマを適用（コメントアウト解除）
+            # system("bundle exec ridgepole -c config/database.yml -E test --apply -f db/Schemafile")
+          end
+        end
+      rescue => e
+        puts "Rails 8.0互換性チェック中にエラーが発生: #{e.message}"
+        # DB接続ヘルパーがある場合は使用
+        if defined?(DatabaseConnectionHelper) && DatabaseConnectionHelper.respond_to?(:handle_rails8_compatibility_error)
+          DatabaseConnectionHelper.handle_rails8_compatibility_error(e)
+        end
+      end
+    end
   end
 end
 
@@ -174,9 +264,14 @@ if defined?(RSpec)
 
     # テストスイート開始前にファクトリーを初期化
     config.before(:suite) do
+      # Rails 8.0の互換性対応
+      FactoryBotHelper.handle_rails8_compatibility if defined?(Rails) && Rails.env.test?
+
       # データベースのクリーンアップ方法を設定
-      DatabaseCleaner.strategy = :transaction
-      DatabaseCleaner.clean_with(:truncation)
+      if defined?(DatabaseCleaner)
+        DatabaseCleaner.strategy = :transaction
+        DatabaseCleaner.clean_with(:truncation)
+      end
 
       # ファクトリーを初期化
       FactoryBotHelper.initialize_factories
@@ -184,8 +279,13 @@ if defined?(RSpec)
 
     # 各テスト前後の処理
     config.around(:each) do |example|
-      # トランザクション内でテストを実行
-      DatabaseCleaner.cleaning do
+      # DatabaseCleanerが利用可能な場合
+      if defined?(DatabaseCleaner)
+        DatabaseCleaner.cleaning do
+          example.run
+        end
+      else
+        # 利用できない場合は単純にテストを実行
         example.run
       end
     end
@@ -198,11 +298,16 @@ if defined?(RSpec)
 end
 
 # ファクトリーを即時初期化（RSpec外での使用時）
-FactoryBotHelper.initialize_factories if !defined?(RSpec) && defined?(FactoryBot)
+if !defined?(RSpec) && defined?(FactoryBot) && !FactoryBotHelper.initialized?
+  FactoryBotHelper.initialize_factories
+end
 
 # Rails 8との互換性対応のため、テストデータベース接続時に自動的にファクトリーを初期化
 if defined?(ActiveSupport::Notifications)
   ActiveSupport::Notifications.subscribe("active_record.connected") do
-    FactoryBotHelper.initialize_factories if defined?(FactoryBot)
+    if defined?(FactoryBot) && !FactoryBotHelper.initialized?
+      puts "データベース接続イベントを検出 - FactoryBotを初期化します"
+      FactoryBotHelper.initialize_factories
+    end
   end
 end

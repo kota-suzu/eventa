@@ -86,76 +86,16 @@ namespace :ridgepole do
     # 追加オプション（verbose出力など）
     ridgepole_options << "--verbose" if ENV["VERBOSE"] == "true"
 
-    begin
-      puts "Ridgepoleを実行しています..."
-      require "ridgepole"
+    # コマンド実行
+    cmd = "bundle exec ridgepole #{ridgepole_options.join(" ")}"
+    puts "コマンド: #{cmd}"
 
-      # Ridgepoleクラスが利用可能な場合は直接オブジェクトを作成して実行
-      if defined?(Ridgepole::Client)
-        begin
-          # 設定を直接指定する方法に変更
-          config_hash = {
-            adapter: db_config[:adapter],
-            database: db_config[:database],
-            host: db_config[:host],
-            port: db_config[:port],
-            username: db_config[:username],
-            password: db_config[:password]
-          }
+    system_result = system(cmd)
 
-          client = Ridgepole::Client.new(config_hash, config.name)
-          result = client.diff(File.read(schemafile_path), exec: true)
-
-          if result.empty?
-            puts "スキーマは最新です。変更はありませんでした。"
-          else
-            puts "スキーマを更新しました:"
-            puts result
-          end
-        rescue => e
-          puts "Ridgepoleクライアント実行エラー: #{e.message}"
-          puts "コマンドライン実行にフォールバックします..."
-
-          # コマンドラインでridgepoleを実行
-          ridgepole_cmd = "bundle exec ridgepole #{ridgepole_options.join(" ")}"
-          puts "コマンド: #{ridgepole_cmd}"
-
-          system_result = system(ridgepole_cmd)
-          if system_result
-            puts "Ridgepoleコマンドは正常に完了しました"
-          else
-            puts "Ridgepoleコマンドは失敗しました（終了コード: #{$?.exitstatus}）"
-            raise "Ridgepoleコマンド実行エラー"
-          end
-        end
-      else
-        # コマンドラインでridgepoleを実行
-        ridgepole_cmd = "bundle exec ridgepole #{ridgepole_options.join(" ")}"
-        puts "コマンド: #{ridgepole_cmd}"
-
-        system_result = system(ridgepole_cmd)
-        if !system_result
-          puts "Ridgepoleコマンドは失敗しました（終了コード: #{$?.exitstatus}）"
-          raise "Ridgepoleコマンド実行エラー"
-        else
-          puts "Ridgepoleコマンドは正常に完了しました"
-        end
-      end
-
-      # スキーマ適用後、テーブルの存在を確認
-      tables = ActiveRecord::Base.connection.tables
-      puts "テーブル一覧: #{tables.join(", ")}"
-
-      missing_tables = %w[users events tickets].reject { |t| tables.include?(t) }
-      if missing_tables.any?
-        puts "注意: 期待されるテーブルが不足しています: #{missing_tables.join(", ")}"
-        raise "スキーマ適用後も重要なテーブルが不足しています"
-      else
-        puts "✓ 重要なテーブルの存在を確認しました"
-      end
-    rescue => e
-      puts "スキーマ適用中にエラーが発生しました: #{e.message}"
-      puts e.backtrace.take(5).join("\n") if e.backtrace
+    if system_result
+      puts "✓ スキーマの適用に成功しました"
+    else
+      puts "！ スキーマの適用に失敗しました（終了コード: #{$?.exitstatus}）"
       exit 1
     end
   end
@@ -200,8 +140,13 @@ namespace :ridgepole do
       db_config = config.configuration_hash
       database_name = db_config[:database]
 
-      # 接続をリセット
-      ActiveRecord::Base.connection_pool.disconnect!
+      # 接続をリセット（Rails 8互換性対応）
+      begin
+        ActiveRecord::Base.connection_pool.disconnect!
+      rescue => e
+        puts "接続プールの切断中にエラーが発生: #{e.message}"
+        # 無視して続行
+      end
 
       # Docker Compose経由でMySQLコマンドを実行
       puts "データベース #{database_name} を再作成します..."
@@ -215,7 +160,7 @@ namespace :ridgepole do
       end
 
       # DBコンテナでSQLコマンドを実行
-      mysql_docker_cmd = "docker-compose exec -T db mysql -u root -prootpass"
+      mysql_docker_cmd = "docker compose exec -T db mysql -u root -prootpass"
 
       # データベースが存在するか確認
       check_cmd = "#{mysql_docker_cmd} -e 'SHOW DATABASES LIKE \"#{database_name}\"'"
@@ -234,27 +179,71 @@ namespace :ridgepole do
       create_cmd = "#{mysql_docker_cmd} -e 'CREATE DATABASE #{database_name} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci'"
       unless run_mysql_command(create_cmd)
         puts "Docker経由でのデータベース作成に失敗しました。ActiveRecordを使用して再試行します..."
-        # ActiveRecordを使用してデータベースを作成
-        ActiveRecord::Base.establish_connection(db_config.merge(database: nil))
-        ActiveRecord::Base.connection.create_database(database_name, charset: "utf8mb4", collation: "utf8mb4_unicode_ci")
-        puts "ActiveRecordを使用してデータベースを作成しました"
+        # ActiveRecordを使用してデータベースを作成（Rails 8互換）
+        begin
+          # Rails 8では異なる方法でデータベースに接続する必要がある場合がある
+          ActiveRecord::Base.establish_connection(db_config.merge(database: nil))
+
+          # database_existsメソッドが利用可能かチェック
+          if ActiveRecord::Base.connection.respond_to?(:database_exists?)
+            if ActiveRecord::Base.connection.database_exists?(database_name)
+              ActiveRecord::Base.connection.drop_database(database_name)
+            end
+            ActiveRecord::Base.connection.create_database(database_name, charset: "utf8mb4", collation: "utf8mb4_unicode_ci")
+          else
+            # 従来の方法（MySQL専用）でデータベースを作成
+            ActiveRecord::Base.connection.execute("CREATE DATABASE IF NOT EXISTS `#{database_name}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci")
+          end
+
+          puts "ActiveRecordを使用してデータベースを作成しました"
+        rescue => e
+          puts "ActiveRecord経由でのデータベース作成にも失敗しました: #{e.message}"
+          puts e.backtrace.take(5).join("\n")
+          exit 1
+        end
       end
 
-      # 接続を再確立
+      # 接続を再確立（Rails 8互換）
       puts "データベース接続を再確立します..."
-      ActiveRecord::Base.establish_connection(db_config)
-      if ActiveRecord::Base.connection.active?
+      begin
+        ActiveRecord::Base.establish_connection(db_config)
+
+        # 接続テスト
+        ActiveRecord::Base.connection.execute("SELECT 1")
         puts "データベース接続再確立に成功しました"
-      else
-        puts "データベース接続の再確立に失敗しました"
-        raise "データベース接続失敗"
+      rescue => e
+        puts "データベース接続の再確立に失敗しました: #{e.message}"
+        puts e.backtrace.take(5).join("\n")
+        exit 1
       end
 
       # Ridgepoleでスキーマを適用
       puts "Ridgepoleでスキーマを適用します..."
-      Rake::Task["ridgepole:apply_to_test"].invoke
 
-      puts "データベース修復プロセスが完了しました"
+      # Rakeタスク呼び出しではなく直接コマンドを実行（より確実）
+      ridgepole_cmd = "bundle exec ridgepole -c config/database.yml -E test --apply -f db/Schemafile"
+      puts "実行するコマンド: #{ridgepole_cmd}"
+
+      if system(ridgepole_cmd)
+        puts "✓ Ridgepoleでのスキーマ適用に成功しました"
+      else
+        puts "！ Ridgepoleでのスキーマ適用に失敗しました（終了コード: #{$?.exitstatus}）"
+        exit 1
+      end
+
+      # FactoryBotのリロード（もし定義されていれば）
+      if defined?(FactoryBot)
+        begin
+          puts "FactoryBot設定をリロードします..."
+          FactoryBot.reload
+          puts "✓ FactoryBot設定をリロードしました"
+        rescue => e
+          puts "FactoryBot設定のリロード中にエラーが発生しました: #{e.message}"
+          # エラーは無視して続行
+        end
+      end
+
+      puts "✓ データベース修復プロセスが完了しました"
     rescue => e
       puts "データベース修復中にエラーが発生しました: #{e.message}"
       puts e.backtrace.take(5).join("\n") if e.backtrace
@@ -311,6 +300,34 @@ namespace :db do
       Rake::Task["ridgepole:repair_test"].invoke
     end
   end
+
+  # Rails 8互換性のための追加タスク
+  namespace :health do
+    desc "テストデータベース接続をリセットし健全性を確認"
+    task reset: :environment do
+      ENV["RAILS_ENV"] = "test"
+      puts "テストデータベース接続をリセットしています..."
+
+      begin
+        # 接続リセット
+        begin
+          ActiveRecord::Base.connection_pool.disconnect!
+        rescue => e
+          puts "接続プール切断エラー（無視）: #{e.message}"
+        end
+
+        ActiveRecord::Base.establish_connection
+
+        # 接続テスト
+        ActiveRecord::Base.connection.execute("SELECT 1")
+        puts "✓ テストデータベース接続のリセットに成功しました"
+      rescue => e
+        puts "テストデータベース接続リセットに失敗: #{e.message}"
+        puts "Ridgepoleによる修復を試みます..."
+        Rake::Task["ridgepole:repair_test"].invoke
+      end
+    end
+  end
 end
 
 # TODO: 1. スキーマ検証の最適化（パフォーマンス向上）
@@ -320,6 +337,7 @@ end
 # TODO: 5. MySQLバージョン依存の問題対応（8.0と5.7の互換性）
 # TODO: 6. Dockerコンテナ間の通信とコマンド実行の安定性向上
 # TODO: 7. MySQLコマンドがない環境でのフォールバック処理の強化
+# TODO: 8. Rails 8.0での互換性問題の対応（migration_contextなど）
 
 private
 

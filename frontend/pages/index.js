@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
+import Image from 'next/image';
 import styles from '../styles/Home.module.css';
 import { useAuth } from '../contexts/AuthContext';
 import Header from '../components/Header';
@@ -91,7 +92,13 @@ export default function Home() {
           </div>
 
           <div className={styles.heroImage}>
-            <img src="/images/hero-image.svg" alt="イベント管理" />
+            <Image
+              src="/images/hero-image.svg"
+              alt="イベント管理"
+              width={500}
+              height={350}
+              priority
+            />
           </div>
         </section>
 
@@ -143,7 +150,13 @@ export default function Home() {
               {events.map((event) => (
                 <div key={event.id} className={styles.eventCard}>
                   <div className={styles.eventImage}>
-                    <img src={event.imageUrl || '/images/event-default.jpg'} alt={event.title} />
+                    <Image
+                      src={event.imageUrl || '/images/event-default.jpg'}
+                      alt={event.title}
+                      width={300}
+                      height={200}
+                      style={{ objectFit: 'cover' }}
+                    />
                   </div>
                   <div className={styles.eventInfo}>
                     <h3 className={styles.eventTitle}>{event.title}</h3>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useAuth } from '../contexts/AuthContext';
 import styles from '../styles/Events.module.css';
 import Header from '../components/Header';
@@ -86,7 +87,13 @@ const Events = () => {
             {events.map((event) => (
               <div key={event.id} className={styles.eventCard} data-testid="event-card">
                 <div className={styles.eventImage}>
-                  <img src={`/images/event-default.jpg`} alt={event.title} />
+                  <Image
+                    src={`/images/event-default.jpg`}
+                    alt={event.title}
+                    width={300}
+                    height={200}
+                    style={{ objectFit: 'cover' }}
+                  />
                 </div>
                 <div className={styles.eventInfo}>
                   <h2 className={styles.eventTitle}>{event.title}</h2>
