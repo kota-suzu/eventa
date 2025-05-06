@@ -20,6 +20,10 @@ jobs:
           bundler-cache: true
           working-directory: ./api
           
+      - name: Install required error_highlight version
+        run: gem install error_highlight -v '0.7.0'
+        working-directory: ./api
+          
       - name: RuboCop
         run: bundle exec standardrb
         working-directory: ./api
