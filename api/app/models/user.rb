@@ -3,7 +3,7 @@ class User < ApplicationRecord
 
   # role を enum として定義
   enum :role, {guest: 0, organizer: 1, admin: 2}, default: :guest
-  
+
   # TODO: ロールベースのアクセス制御（RBAC）を強化
   # 現在の単純なロール管理から、より詳細な権限管理システムへ移行
   # - 細分化された権限（パーミッション）の導入
@@ -18,7 +18,7 @@ class User < ApplicationRecord
   validates :password, presence: true,
     length: {minimum: 8, maximum: 72},
     if: -> { password.present? || new_record? }
-    
+
   # TODO(!security): パスワード強度のバリデーションを強化
   # 現在は文字数のみの検証だが、以下の追加検証が必要：
   # - 大文字・小文字・数字・特殊文字を含む複雑性要件
@@ -31,7 +31,7 @@ class User < ApplicationRecord
   has_many :participants, dependent: :destroy
   has_many :participating_events, through: :participants, source: :event
   has_many :reservations, dependent: :destroy  # ユーザーが削除されたら予約も削除
-  
+
   # TODO(!feature): 二要素認証(2FA)の実装
   # セキュリティ強化のための二要素認証機能
   # - TOTPベースの実装（Google Authenticator互換）
@@ -50,7 +50,7 @@ class User < ApplicationRecord
   def deactivate
     update(status: :inactive)
   end
-  
+
   # FIXME: アカウント削除処理の改善
   # 現在の物理削除から論理削除への変更
   # - 削除フラグと削除日時の追加
@@ -69,7 +69,7 @@ class User < ApplicationRecord
     # パスワード検証
     user.authenticate(password) ? user : nil
   end
-  
+
   # TODO: アカウントロック機能の実装
   # 連続した認証失敗に対するセキュリティ対策
   # - 失敗回数のカウントと閾値設定

@@ -12,12 +12,12 @@ class ApplicationController < ActionController::API
 
   # エラーレスポンス用のヘルパーメソッド
   def render_error(message, status = :unprocessable_entity)
-    render json: { error: message }, status: status
+    render json: {error: message}, status: status
   end
 
   # 認証エラーレスポンス
   def render_unauthorized(message = "認証が必要です")
-    render json: { error: message }, status: :unauthorized
+    render json: {error: message}, status: :unauthorized
   end
 
   # TODO(!feature): グローバルエラーハンドリングの強化
@@ -32,27 +32,27 @@ class ApplicationController < ActionController::API
   # リクエストの認証
   def authenticate_request
     # ヘッダーからトークン取得
-    header = request.headers['Authorization']
-    
+    header = request.headers["Authorization"]
+
     # Cookieからもトークンを取得（Web向け）
     cookie_token = cookies.signed[:jwt]
-    
+
     # ヘッダーまたはCookieからのトークン取得
     token = extract_token_from_header(header) || cookie_token
-    
+
     # トークンがない場合は未認証エラー
     unless token
       return render_unauthorized
     end
-    
+
     begin
       # トークンをデコード
       decoded_token = JsonWebToken.decode(token)
       # ユーザーIDをコントローラから参照可能に
-      @current_user_id = decoded_token['user_id']
+      @current_user_id = decoded_token["user_id"]
     rescue JWT::DecodeError, JWT::ExpiredSignature, JWT::VerificationError => e
       # トークンが無効または期限切れ
-      return render_unauthorized("無効なトークンです: #{e.message}")
+      render_unauthorized("無効なトークンです: #{e.message}")
     end
   end
 
@@ -61,20 +61,20 @@ class ApplicationController < ActionController::API
   # 異なる場合は追加の認証を要求する機能
   # - GeoIPを使った大きな地理的変更の検出
   # - 高リスク操作時の追加認証要求
-  
+
   # 現在の認証済みユーザーを取得
   def current_user
     @current_user ||= User.find_by(id: @current_user_id) if @current_user_id
   end
-  
+
   # Authorizationヘッダーからトークンを抽出
   def extract_token_from_header(header)
     # Bearer形式のトークンを抽出
-    if header&.start_with?('Bearer ')
-      header.gsub('Bearer ', '')
+    if header&.start_with?("Bearer ")
+      header.gsub("Bearer ", "")
     end
   end
-  
+
   # JWT cookieを設定
   def set_jwt_cookie(token)
     cookies.signed[:jwt] = {
@@ -84,7 +84,7 @@ class ApplicationController < ActionController::API
       expires: 24.hours.from_now
     }
   end
-  
+
   # リフレッシュトークンcookieを設定
   def set_refresh_token_cookie(refresh_token)
     cookies.signed[:refresh_token] = {
@@ -94,7 +94,7 @@ class ApplicationController < ActionController::API
       expires: 30.days.from_now
     }
   end
-  
+
   # FIXME: CSRFトークン検証の実装
   # APIでもステートフルセッションを使用する場合は、
   # CSRF対策が必要
