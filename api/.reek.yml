@@ -24,8 +24,8 @@ detectors:
     max_allowed_nesting: 2
   UncommunicativeMethodName:
     reject:
-      - !ruby/regexp /^[a-z]$/
-      - !ruby/regexp /[0-9]$/
+      - /^[a-z]$/
+      - /[0-9]$/
   ClassVariable:
     enabled: false
 
