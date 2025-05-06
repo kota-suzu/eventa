@@ -1,16 +1,30 @@
+version: '3.8'
+
 services:
   db:
     image: mysql:8.0
-    env_file: .env.example
-    ports: 
-      # 開発時の直接アクセス用のみポート公開（CIでは不要）
-      - "3306:3306"
+    platform: linux/amd64
+    container_name: eventa_db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: eventa_development
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+      TZ: Asia/Tokyo
     volumes:
       - db_data:/var/lib/mysql
+      - ./mysql_config:/etc/mysql/conf.d
+      - ./db/sql:/docker-entrypoint-initdb.d
+    ports:
+      - "3306:3306"
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "--silent"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpass"]
+      interval: 10s
       timeout: 5s
-      retries: 10
+      retries: 5
+      start_period: 30s
+    command: --default-authentication-plugin=mysql_native_password
 
   redis:
     image: redis:7-alpine
@@ -24,58 +38,76 @@ services:
       retries: 30
 
   api:
-    build: 
-      context: .
-      dockerfile: Dockerfile.api
-      target: builder  # 開発環境では必要なツールが入っているbuilderステージを使用
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: eventa_api
     restart: unless-stopped
+    environment:
+      RAILS_ENV: development
+      DB_HOST: db
+      DB_USERNAME: root
+      DB_PASSWORD: rootpass
+      TZ: Asia/Tokyo
+      RAILS_MASTER_KEY: ${RAILS_MASTER_KEY:-master_key_placeholder}
+      SECRET_KEY_BASE: a1b2c3d4e5f6g7h8
+    volumes:
+      - ./api:/app
+      - api_bundle:/usr/local/bundle
+      - api_node_modules:/app/node_modules
+      - ./api/tmp/mysql.sock:/tmp/mysql.sock
+    ports:
+      - "3000:3000"
     depends_on:
       db:
         condition: service_healthy
-      redis:
-        condition: service_healthy
-    ports: ["3001:3000"]
-    env_file: .env.example
-    environment:
-      - RAILS_ENV=development
-    # 開発環境ではまずbundle installを実行してからForeman起動
+    tty: true
+    stdin_open: true
+    # mysql-clientパッケージのインストールを追加
     command: >
-      bash -c "bundle config set --local without '' &&
-              bundle config set --local deployment 'false' &&
-              bundle install --jobs 4 &&
-              bundle exec foreman start -f Procfile.dev"
-    volumes:
-      - ./api:/app
-      - bundle_cache:/usr/local/bundle
-      - yarn_cache:/home/vscode/.cache/yarn
-    tty: true  # TTYを有効化（対話コマンドのサポート）
-    stdin_open: true  # STDINを有効化
-    # メモリ制限設定 - RSpecのテスト実行時に十分なメモリを確保
-    deploy:
-      resources:
-        limits:
-          memory: 2G
-        reservations:
-          memory: 512M
+      bash -c "
+        apt-get update &&
+        apt-get install -y default-mysql-client &&
+        bundle check || bundle install &&
+        rm -f tmp/pids/server.pid &&
+        export SECRET_KEY_BASE=a1b2c3d4e5f6g7h8 &&
+        bin/rails s -p 3000 -b '0.0.0.0'
+      "
 
   # フロントエンド開発サーバー
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    container_name: eventa_frontend
     restart: unless-stopped
-    ports: ["3000:3000"]
+    environment:
+      NODE_ENV: development
+      TZ: Asia/Tokyo
+      API_BASE_URL: http://api:3000
     volumes:
       - ./frontend:/app
       - frontend_node_modules:/app/node_modules
-    environment:
-      - NODE_ENV=development
-      - NEXT_PUBLIC_API_URL=http://api:3000
-    command: npm run dev
+    ports:
+      - "3001:3000"
     depends_on:
       - api
-    tty: true  # TTYを有効化（対話コマンドのサポート）
-    stdin_open: true  # STDINを有効化
+    tty: true
+    stdin_open: true
+    command: npm run dev
+
+  # 開発サポートサービス
+  adminer:
+    image: adminer:latest
+    container_name: eventa_adminer
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: db
+    depends_on:
+      db:
+        condition: service_healthy
 
   # 本番環境に近い構成でテストしたい場合のみworkerを分離起動
   worker:
@@ -98,6 +130,8 @@ services:
 
 volumes:
   db_data:
+  api_bundle:
+  api_node_modules:
+  frontend_node_modules:
   bundle_cache:
   yarn_cache:
-  frontend_node_modules:

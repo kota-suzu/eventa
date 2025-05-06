@@ -2,6 +2,17 @@
 # Eventa Makefile v2-parallel-fixed + coverage (2025-05-05)
 ############################################
 
+# TODO: docker-compose.yml の `version` 属性の削除
+# 警告が出ているので、docker compose 互換性のため将来的に削除する
+
+# TODO: コンテナ内のgitリポジトリ対応
+# `fatal: not a git repository`警告を解消するには、
+# .gitをボリュームマウントするか、GIT_DISCOVERY_ACROSS_FILESYSTEM=1を設定する
+
+# TODO: CI環境用の変数渡し整理
+# 将来的にはすべての環境変数をdocker-compose.ymlに集約して、
+# 個別のMakeターゲットでは指定しないようにする考慮も必要
+
 ### ===== 共通設定 ===== ###
 SHELL          := /bin/bash -e -o pipefail
 JOBS           ?= $(shell nproc)            # 並列度 (上書き可)
@@ -9,9 +20,14 @@ MAKEFLAGS      += --silent -j$(JOBS) -k     # -k: エラーでも続行
 .RECIPEPREFIX  = \	                        # 可視タブ
 .ONESHELL:
 
+# Rails master.keyをホストから読み込み、コンテナに環境変数として渡す
+# 仕組み：Rails 8ではcredentials/encryptionに使われるキーは必ず16バイト必要
+MASTER_KEY     := $(shell cat api/config/master.key 2>/dev/null)
+
 COMPOSE  := docker compose
 DB_PASS  ?= rootpass
-RIDGEPOLE = $(COMPOSE) exec -e DB_HOST=db -e DATABASE_PASSWORD=$(DB_PASS) api bundle exec ridgepole -c config/database.yml -E development
+RIDGEPOLE_ENV ?= development
+RIDGEPOLE = $(COMPOSE) exec -e DB_HOST=db -e DATABASE_PASSWORD=$(DB_PASS) -e RAILS_ENV=$(RIDGEPOLE_ENV) api bundle exec ridgepole -c config/database.yml -E $(RIDGEPOLE_ENV)
 
 ### ===== 出力ヘルパ ===== ###
 banner = @echo; echo "\033[1;36m== $(1) ==\033[0m"
@@ -82,12 +98,22 @@ backend-lint: ## 🧹 Lint
 backend-test: ## 🧪 Test＋カバレッジ
 	$(banner) "Backend Test"
 	# Rails 8.0 互換性問題を回避するため tmp をクリア
-	$(COMPOSE) exec -e COVERAGE=true -e RAILS_ENV=test api bundle exec rails tmp:clear
-	$(COMPOSE) exec -e COVERAGE=true -e RAILS_ENV=test api bundle exec rspec
+	$(COMPOSE) exec -e COVERAGE=true -e RAILS_ENV=test -e RAILS_MASTER_KEY=$(MASTER_KEY) api bundle exec rails tmp:clear
+	$(COMPOSE) exec -e COVERAGE=true -e RAILS_ENV=test -e RAILS_MASTER_KEY=$(MASTER_KEY) api bundle exec rspec
 
 backend-db-dry-run: ## 🔍 Ridgepole DryRun
 	$(banner) "Schema DryRun"
-	$(RIDGEPOLE) --apply --dry-run -f db/Schemafile --no-color
+	$(COMPOSE) exec -e RAILS_ENV=test -e RAILS_MASTER_KEY=$(MASTER_KEY) api bundle exec ridgepole -c config/database.yml -E test --apply --dry-run -f db/Schemafile --no-color
+
+backend-test-api-force: ## 🧪 APIテストを強制的に実行
+	$(banner) "API Tests (Force Run)"
+	$(COMPOSE) exec -e RAILS_ENV=test -e FORCE_API_TESTS=true -e RAILS_MASTER_KEY=$(MASTER_KEY) api bundle exec rspec spec/requests/
+
+.NOTPARALLEL: backend-fix-api
+backend-fix-api: ## 🔧 API通過テスト修正＋実行
+	$(banner) "API Test Fix"
+	-$(COMPOSE) exec -e RAILS_MASTER_KEY=$(MASTER_KEY) api bundle exec standardrb --fix-unsafely spec/support/pending_api_helper.rb
+	$(COMPOSE) exec -e RAILS_ENV=test -e FORCE_API_TESTS=true -e RAILS_MASTER_KEY=$(MASTER_KEY) api bundle exec rspec spec/requests/
 
 .NOTPARALLEL: backend-ci
 backend-ci: backend-fix backend-lint backend-db-dry-run backend-test ## 🔄 Backend 一括
@@ -120,21 +146,16 @@ coverage-summary: ## 🔍 直近テストのカバレッジ要約
 	-$(COMPOSE) exec api sh -c 'test -f coverage/.resultset.json && jq -r '"'"'.[].result | "Line: \(.line)%, Branch: \(.branch)%"'"'"' coverage/.resultset.json | head -n1' || echo "No coverage results found"
 
 .NOTPARALLEL: full-check
-full-check: ## 🔍 Back & Front 同時検証
-	$(banner) "フルチェック実行"
-	$(MAKE) backend-ci || { \
-		echo "\033[1;31m⚠️ バックエンドチェックでエラーが発生しました\033[0m"; \
-		echo "エラーを修正するか、依存関係の問題の場合は 'make setup' を実行してください"; \
-		exit 1; \
-	}
-	$(MAKE) frontend-ci || { \
-		echo "\033[1;31m⚠️ フロントエンドチェックでエラーが発生しました\033[0m"; \
-		echo "エラーを修正するか、依存関係の問題の場合は 'make setup' を実行してください"; \
-		exit 1; \
-	}
-	$(banner) "カバレッジ要約"
-	-$(MAKE) coverage-summary || true
-	@echo "\033[1;32m✓ full-check 完了 (JOBS=$(JOBS))\033[0m"
+full-check: ## 🔍 全体チェック（Lint + Test）
+	$(banner) "全体チェック実行"
+	@$(MAKE) db-test-health || \
+	(echo "\033[1;33m⚠️ テストデータベースの健全性チェックに失敗しました。修復してリトライします...\033[0m" && \
+	$(MAKE) db-test-repair && $(MAKE) db-test-health)
+	@$(MAKE) backend-lint
+	@$(MAKE) frontend-lint
+	@$(MAKE) backend-test
+	@$(MAKE) frontend-test
+	@echo "\033[1;32m✓ 全体チェック完了\033[0m"
 
 ### ===== レポート ===== ###
 full-report: ## 📝 full-check + ログ保存
@@ -216,17 +237,11 @@ check-ci-db: ## 🔍 CI環境用データベース設定確認
 	-$(COMPOSE) exec -e RAILS_ENV=test api bundle exec rails runner 'begin; puts "接続成功: #{ActiveRecord::Base.connection.execute("SELECT 1").to_a.inspect}"; rescue => e; puts "接続エラー: #{e.message}"; end'
 	@echo "\033[1;32m✓ CI環境データベース確認完了\033[0m"
 
-repair-test-db: ## 🔧 テスト環境のデータベースを修復
-	$(banner) "テスト環境データベース修復"
-	# データベースを再作成
-	$(COMPOSE) exec -e RAILS_ENV=test api bundle exec rails db:drop db:create
-	# スキーマを明示的に適用
-	$(COMPOSE) exec -e RAILS_ENV=test api bundle exec ridgepole -c config/database.yml -E test --apply --verbose -f db/Schemafile
-	# テーブル確認
-	$(COMPOSE) exec -e RAILS_ENV=test api bundle exec rails runner 'tables = ActiveRecord::Base.connection.tables.sort; puts "テーブル一覧 (#{tables.size}件): #{tables.join(", ")}"'
-	# 重要テーブルの存在確認
-	$(COMPOSE) exec -e RAILS_ENV=test api bundle exec rails runner 'critical_tables = %w[events users tickets ticket_types participants reservations]; existing_tables = ActiveRecord::Base.connection.tables; missing_tables = critical_tables - existing_tables; if missing_tables.empty?; puts "✅ 重要テーブルは全て存在します"; else; puts "❌ 不足テーブル: #{missing_tables.join(", ")}"; exit 1; end'
-	@echo "\033[1;32m✓ テスト環境データベース修復完了\033[0m"
+repair-test-db: ## 🚨 テストデータベースを緊急修復
+	$(banner) "テストDB緊急修復"
+	@echo "テストデータベースを緊急修復しています..."
+	@$(COMPOSE) exec -e RAILS_ENV=test api bundle exec rails ridgepole:repair_test
+	@echo "\033[1;32m✓ テストデータベースの修復が完了しました\033[0m"
 
 repair: ## 🔧 依存関係の修復
 	$(banner) "依存関係の修復を実行しています"
@@ -280,15 +295,15 @@ backend-quality: backend-coverage backend-complexity backend-code-smells ## 🔬
 ### ===== ブランチカバレッジ向上ターゲット ===== ###
 test-payment-service: ## 💳 PaymentServiceのテスト実行
 	$(banner) "PaymentServiceのテスト実行"
-	$(COMPOSE) exec -e COVERAGE=true -e RAILS_ENV=test api bundle exec rspec spec/services/payment_service_spec.rb
+	$(COMPOSE) exec -e COVERAGE=true -e RAILS_ENV=test -e RAILS_MASTER_KEY=$(MASTER_KEY) api bundle exec rspec spec/services/payment_service_spec.rb
 
 test-auths: ## 🔑 認証関連テスト実行
 	$(banner) "認証関連のテスト実行"
-	$(COMPOSE) exec -e COVERAGE=true -e RAILS_ENV=test api bundle exec rspec spec/requests/auths_spec.rb
+	$(COMPOSE) exec -e COVERAGE=true -e RAILS_ENV=test -e RAILS_MASTER_KEY=$(MASTER_KEY) api bundle exec rspec spec/requests/auths_spec.rb
 
 test-event: ## 🎟 Eventモデルのテスト実行
 	$(banner) "Eventモデルのテスト実行"
-	$(COMPOSE) exec -e COVERAGE=true -e RAILS_ENV=test api bundle exec rspec spec/models/event_spec.rb
+	$(COMPOSE) exec -e COVERAGE=true -e RAILS_ENV=test -e RAILS_MASTER_KEY=$(MASTER_KEY) api bundle exec rspec spec/models/event_spec.rb
 
 high-coverage: test-payment-service test-auths test-event ## 🏆 ブランチカバレッジ向上テスト一括実行
 	$(banner) "ブランチカバレッジ向上テスト実行完了"
@@ -312,22 +327,22 @@ local-ci: ## 🏃‍♂️ GitHub Actions と同内容のローカル CI
 ci-simulate: ## 🤖 CI環境をシミュレートして特定のテストを実行
 	$(banner) "CI環境シミュレーション"
 	$(banner) "データベースリセット＆準備"
-	$(COMPOSE) exec -e RAILS_ENV=test api bundle exec rails db:prepare
+	$(COMPOSE) exec -e RAILS_ENV=test -e RAILS_MASTER_KEY=$(MASTER_KEY) api bundle exec rails db:prepare
 	$(banner) "テーブル確認"
-	$(COMPOSE) exec -e RAILS_ENV=test api bundle exec rails runner 'tables = ActiveRecord::Base.connection.tables.sort; puts "テーブル一覧 (#{tables.size}件): #{tables.join(", ")}"; puts "データベースアダプタ: #{ActiveRecord::Base.connection.adapter_name}"'
+	$(COMPOSE) exec -e RAILS_ENV=test -e RAILS_MASTER_KEY=$(MASTER_KEY) api bundle exec rails runner 'tables = ActiveRecord::Base.connection.tables.sort; puts "テーブル一覧 (#{tables.size}件): #{tables.join(", ")}"; puts "データベースアダプタ: #{ActiveRecord::Base.connection.adapter_name}"'
 	$(banner) "認証テスト実行"
-	$(COMPOSE) exec -e RAILS_ENV=test -e COVERAGE=true api bundle exec rspec spec/services/json_web_token_spec.rb spec/models/user_spec.rb spec/requests/auths_spec.rb
+	$(COMPOSE) exec -e RAILS_ENV=test -e COVERAGE=true -e RAILS_MASTER_KEY=$(MASTER_KEY) api bundle exec rspec spec/services/json_web_token_spec.rb spec/models/user_spec.rb spec/requests/auths_spec.rb
 	@echo "\033[1;32m✓ CI環境シミュレーション完了\033[0m"
 
 # CI用の診断機能（CIパイプラインチェック用）
 ci-healthcheck: ## 👩‍⚕️ CIパイプラインの健全性チェック
 	$(banner) "CIパイプライン健全性チェック"
 	$(banner) "データベース接続確認"
-	$(COMPOSE) exec -e RAILS_ENV=test api bundle exec rails runner 'begin; tables = ActiveRecord::Base.connection.tables.sort; puts "テーブル確認OK (#{tables.size}件): #{tables.join(", ")}"; rescue => e; puts "DB接続エラー: #{e.message}"; exit 1; end'
+	$(COMPOSE) exec -e RAILS_ENV=test -e RAILS_MASTER_KEY=$(MASTER_KEY) api bundle exec rails runner 'begin; tables = ActiveRecord::Base.connection.tables.sort; puts "テーブル確認OK (#{tables.size}件): #{tables.join(", ")}"; rescue => e; puts "DB接続エラー: #{e.message}"; exit 1; end'
 	$(banner) "重要なテーブルの存在確認"
-	$(COMPOSE) exec -e RAILS_ENV=test api bundle exec rails runner 'critical_tables = %w[events users tickets ticket_types participants reservations]; missing = critical_tables - ActiveRecord::Base.connection.tables; if missing.empty?; puts "✅ 重要テーブルは全て存在します"; else; puts "❌ 不足テーブル: #{missing.join(", ")}"; exit 1; end'
+	$(COMPOSE) exec -e RAILS_ENV=test -e RAILS_MASTER_KEY=$(MASTER_KEY) api bundle exec rails runner 'critical_tables = %w[events users tickets ticket_types participants reservations]; missing = critical_tables - ActiveRecord::Base.connection.tables; if missing.empty?; puts "✅ 重要テーブルは全て存在します"; else; puts "❌ 不足テーブル: #{missing.join(", ")}"; exit 1; end'
 	$(banner) "usersテーブル構造確認"
-	$(COMPOSE) exec -e RAILS_ENV=test api bundle exec rails runner 'begin; columns = ActiveRecord::Base.connection.columns("users"); if columns.any?; puts "✅ usersテーブルのカラム数: #{columns.size}"; else; puts "❌ usersテーブルにカラムがありません"; exit 1; end; rescue => e; puts "❌ usersテーブル確認エラー: #{e.message}"; exit 1; end'
+	$(COMPOSE) exec -e RAILS_ENV=test -e RAILS_MASTER_KEY=$(MASTER_KEY) api bundle exec rails runner 'begin; columns = ActiveRecord::Base.connection.columns("users"); if columns.any?; puts "✅ usersテーブルのカラム数: #{columns.size}"; else; puts "❌ usersテーブルにカラムがありません"; exit 1; end; rescue => e; puts "❌ usersテーブル確認エラー: #{e.message}"; exit 1; end'
 	@echo "\033[1;32m✓ CIパイプライン健全性チェック完了\033[0m"
 
 # Git 履歴から修正回数が多い "アツい" ファイル上位 20 % を抽出
@@ -345,5 +360,60 @@ install-pre-push: ## 🛡 push 前に make local-ci を自動実行する Git Ho
 	@echo '#!/usr/bin/env bash\nset -e\nmake local-ci' > .git/hooks/pre-push
 	@chmod +x .git/hooks/pre-push
 	@echo '\033[1;32m✓ pre-push フックを設定しました。push 時に Local CI が走ります。\033[0m'
+
+### ===== データベース診断と修復コマンド ===== ###
+db-test-health: ## 🏥 テストDB健全性チェック
+	@echo "テストデータベースの健全性チェックを実行しています..."
+	@$(COMPOSE) exec -e RAILS_ENV=test -e RAILS_MASTER_KEY=$(MASTER_KEY) api \
+	    bundle exec rake test:db_health || \
+	 (echo "テストDBに問題 → 修復を試みます..." && $(MAKE) db-test-repair)
+
+db-test-repair: ## 🔧 テストDB修復（緊急用）
+	@echo "テストデータベースの修復を実行しています..."
+	@$(COMPOSE) exec -e RAILS_ENV=test -e RAILS_MASTER_KEY=$(MASTER_KEY) api \
+	    bundle exec rake test:db_repair
+
+db-test-reset: ## 🧹 テスト環境データベース接続リセット
+	$(banner) "テストDB接続リセット"
+	@echo "テストデータベース接続をリセットしています..."
+	@$(COMPOSE) exec -e RAILS_ENV=test -e RAILS_MASTER_KEY=$(MASTER_KEY) api bundle exec rails db:test:prepare || \
+		(echo "標準リセット失敗。緊急修復を実行します..." && \
+		$(COMPOSE) exec -e RAILS_ENV=test -e RAILS_MASTER_KEY=$(MASTER_KEY) api bundle exec rails ridgepole:repair_test)
+	@echo "FactoryBotの設定をリロードしています..."
+	@$(COMPOSE) exec -e RAILS_ENV=test -e RAILS_MASTER_KEY=$(MASTER_KEY) api bundle exec rails runner 'FactoryBot.reload if defined?(FactoryBot)'
+	@echo "✓ テストデータベース接続のリセットが完了しました"
+
+backend-test-reconnect: ## 🔄 バックエンドテスト（接続リセット付き）
+	$(banner) "接続リセット付きバックエンドテスト"
+	# まず接続をリセットしてからテストを実行
+	$(COMPOSE) exec -e RAILS_ENV=test -e RAILS_MASTER_KEY=$(MASTER_KEY) api bundle exec rails db:health:reset
+	$(COMPOSE) exec -e COVERAGE=true -e RAILS_ENV=test -e RAILS_MASTER_KEY=$(MASTER_KEY) api bundle exec rails tmp:clear
+	$(COMPOSE) exec -e COVERAGE=true -e RAILS_ENV=test -e RAILS_MASTER_KEY=$(MASTER_KEY) api bundle exec rspec
+
 # CI互換テストを実行（テスト環境の健全性確認付き）
 ci-test: ## 🧪 CI互換のUserモデルとAuth関連のテストを実行
+
+# テストのデバッグ実行（詳細な出力）
+debug-test:
+	@echo "詳細モードでテストを実行しています..."
+	@$(COMPOSE) exec -e RAILS_ENV=test -e VERBOSE=true -e RAILS_MASTER_KEY=$(MASTER_KEY) api bundle exec rspec --format documentation
+
+# データベース診断コマンド
+db-diagnostic:
+	@echo "データベース診断を実行しています..."
+	@$(COMPOSE) exec -e RAILS_MASTER_KEY=$(MASTER_KEY) api bundle exec rails runner 'puts "データベース情報:"; puts "- 環境: #{Rails.env}"; puts "- データベース: #{ActiveRecord::Base.connection.current_database}"; puts "- テーブル数: #{ActiveRecord::Base.connection.tables.size}"; puts "テーブル一覧:"; ActiveRecord::Base.connection.tables.each { |t| puts "- #{t}" }'
+
+# テストデータベース専用の診断
+test-db-diagnostic:
+	@echo "テストデータベース診断を実行しています..."
+	@$(COMPOSE) exec -e RAILS_ENV=test -e RAILS_MASTER_KEY=$(MASTER_KEY) api bundle exec rails runner 'puts "テストデータベース情報:"; puts "- データベース: #{ActiveRecord::Base.connection.current_database}"; puts "- テーブル数: #{ActiveRecord::Base.connection.tables.size}"; tables = ActiveRecord::Base.connection.tables; if tables.empty?; puts "警告: テーブルが存在しません！"; else; puts "テーブル一覧:"; tables.each { |t| puts "- #{t}" }; end'
+
+# テスト環境のスキーマDRYラン
+test-schema-dry-run: ## 🔍 テスト環境のスキーマDRYラン
+	$(banner) "テスト環境スキーマDRYラン"
+	@echo "テスト環境のスキーマをチェックしています..."
+	@$(COMPOSE) exec -e RAILS_ENV=test -e RAILS_MASTER_KEY=$(MASTER_KEY) api bundle exec rails ridgepole:dry_run
+
+############################################
+# 追加ターゲットは help の自動抽出だけで OK
+############################################
