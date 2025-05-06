@@ -38,4 +38,4 @@ class ExampleTodoDemo
     # 既存のIssue #42に関連する機能なので、そちらと合わせて実装する
     puts "Report generated"
   end
-end 
+end

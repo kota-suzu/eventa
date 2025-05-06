@@ -1,18 +1,15 @@
-name: TODO to Issue
+name: "TODO to Issue"
+
+# TODO(!enhancement): 複数ラベル対応を追加する（例: TODO(!urgent !backend): のような形式）
+# alstr/todo-to-issue-action が対応しているか確認するか、カスタムパーサーの実装を検討する
+
+# TODO: 定期実行（scheduled）を追加して、一定期間ごとにコードベースをスキャンして Issue 化することを検討する
 
 on:
   push:
     branches: [ main, develop ]
     paths-ignore:
       # 自動生成ファイルや頻繁に変更されるファイルを除外
-      - 'api/db/schema.rb'
-      - 'api/vendor/**'
-      - 'api/log/**'
-      - 'api/tmp/**'
-      - 'api/coverage/**'
-      - 'frontend/node_modules/**'
-      - 'frontend/.next/**'
-      - 'frontend/coverage/**'
       - '**/*.lock'
       - '**/*.md'
 
@@ -33,4 +30,7 @@ jobs:
           LABEL: 'todo'
           CLOSE_ISSUES: true
           AUTO_ASSIGN: 'kota-suzu'  # チームのデフォルト担当者（必要に応じて変更）
-          INCLUDE_PATTERN: '*.rb|*.js|*.jsx|*.ts|*.tsx|*.yml|*.yaml|Makefile|Dockerfile*|*.css|*.scss|*.html|*.erb'  # コード関連ファイルのみ対象 
+          INCLUDE_PATTERN: '*.rb|*.js|*.jsx|*.ts|*.tsx|*.yml|*.yaml|Makefile|Dockerfile*|*.css|*.scss|*.html|*.erb'  # コード関連ファイルのみ対象
+
+# TODO: スケジュール実行の追加を検討する
+# 定期的に全コードベースをスキャンし、漏れなくTODOコメントをIssue化する 

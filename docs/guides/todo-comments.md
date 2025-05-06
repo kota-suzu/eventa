@@ -64,6 +64,15 @@
 - 時間的制約がある場合は期限を記載しましょう（例：`TODO: 2023年7月までに対応する`）
 - プロジェクト全体で統一したスタイルを使用しましょう
 
+# TODO(!documentation): 期限指定の標準フォーマットを追加する
+# 例：TODO(deadline:2023-12-31): のような書式を推奨し、Issue側で期限として認識されるようにする
+
+# TODO: TODOコメントの統計情報ダッシュボードを追加
+# チーム全体でのTODO管理をしやすくするために、以下の情報を表示する：
+# - 担当者別のTODO数
+# - 優先度別のTODO分布
+# - 期限別のTODO一覧
+
 ## 5. 実装の仕組み
 
 この機能は [alstr/todo-to-issue-action](https://github.com/alstr/todo-to-issue-action) を使用しており、`.github/workflows/todo.yml` で設定されています。コードがmainブランチにプッシュされると、自動的にTODOコメントがスキャンされIssue化されます。

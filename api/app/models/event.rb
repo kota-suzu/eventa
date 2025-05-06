@@ -12,13 +12,30 @@ class Event < ApplicationRecord
   alias_attribute :end_date, :end_at
   alias_attribute :location, :venue
 
-  validates :title, presence: true
+  validates :title, presence: true, length: {maximum: 100}
+  validates :description, presence: true
   validates :start_at, presence: true
   validates :end_at, presence: true
   validates :venue, presence: true
   validates :capacity, numericality: {greater_than: 0}
   validate :end_at_after_start_at
   validate :capacity_limit
+
+  # TODO(!feature): イベントのタグ機能を追加
+  # ユーザーがイベントを検索しやすくするために、タグ付け機能を実装
+  # - Acts-As-Taggableを導入検討
+  # - タグの自動提案機能
+
+  # TODO(!performance): キャパシティに関する計算をキャッシュする
+  # 現在、残席数の計算が毎回クエリを実行しているため、大量アクセス時にパフォーマンスが低下
+  # - Redisでのキャッシュ対応
+  # - カウンターキャッシュカラムの追加
+
+  # OPTIMIZE: イベントの検索機能を高速化
+  # 現在の単純なクエリから、Elasticsearchなどの検索エンジンを導入する
+
+  scope :upcoming, -> { where("start_at >= ?", Date.current) }
+  scope :past, -> { where("end_at < ?", Date.current) }
 
   # 販売中のチケットタイプを取得
   def on_sale_ticket_types
@@ -28,6 +45,14 @@ class Event < ApplicationRecord
   # 販売可能なチケットタイプを取得（時間的に有効なもの）
   def active_ticket_types
     ticket_types.active
+  end
+
+  def available_seats
+    capacity - reservations.count
+  end
+
+  def available?
+    available_seats > 0
   end
 
   private

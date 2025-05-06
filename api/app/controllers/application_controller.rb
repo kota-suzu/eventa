@@ -1,113 +1,103 @@
 class ApplicationController < ActionController::API
   include ActionController::Cookies
 
-  # デフォルトで全アクションに認証を要求
-  before_action :authenticate_user
+  # JWT認証を全アクションに適用
+  before_action :authenticate_request
+
+  # OPTIMIZE: 認証処理のパフォーマンス最適化
+  # 現在のリクエストごとの認証処理を改善し、特に高頻度APIで効率化
+  # - トークン検証結果のキャッシュ
+  # - レート制限の効率的実装
+  # - バッチ処理用の特殊認証
+
+  # エラーレスポンス用のヘルパーメソッド
+  def render_error(message, status = :unprocessable_entity)
+    render json: { error: message }, status: status
+  end
+
+  # 認証エラーレスポンス
+  def render_unauthorized(message = "認証が必要です")
+    render json: { error: message }, status: :unauthorized
+  end
+
+  # TODO(!feature): グローバルエラーハンドリングの強化
+  # 一貫性のあるエラーレスポンスフォーマットを実装
+  # - エラーコード体系の整備
+  # - 多言語対応エラーメッセージ
+  # - 開発環境でのデバッグ情報追加
+  # - 本番環境でのセキュアなエラー情報
 
   private
 
-  # 認証が必要なコントローラーで使用するメソッド
-  def authenticate_user
-    if Rails.env.test?
-      handle_test_environment_authentication
-    else
-      handle_production_authentication
+  # リクエストの認証
+  def authenticate_request
+    # ヘッダーからトークン取得
+    header = request.headers['Authorization']
+    
+    # Cookieからもトークンを取得（Web向け）
+    cookie_token = cookies.signed[:jwt]
+    
+    # ヘッダーまたはCookieからのトークン取得
+    token = extract_token_from_header(header) || cookie_token
+    
+    # トークンがない場合は未認証エラー
+    unless token
+      return render_unauthorized
+    end
+    
+    begin
+      # トークンをデコード
+      decoded_token = JsonWebToken.decode(token)
+      # ユーザーIDをコントローラから参照可能に
+      @current_user_id = decoded_token['user_id']
+    rescue JWT::DecodeError, JWT::ExpiredSignature, JWT::VerificationError => e
+      # トークンが無効または期限切れ
+      return render_unauthorized("無効なトークンです: #{e.message}")
     end
   end
 
-  # テスト環境での認証ハンドリング
-  def handle_test_environment_authentication
-    if controller_name == "anonymous"
-      authenticate_anonymous_controller
-    elsif controller_name != "auths"
-      # 通常のテスト環境では従来通り認証をスキップ
-      true
-    else
-      # auths コントローラーの場合は通常の認証フローを実行
-      handle_production_authentication
-    end
-  end
-
-  # 匿名コントローラーの認証処理（テスト環境）
-  def authenticate_anonymous_controller
-    token = extract_token
-    if token.present?
-      payload = JsonWebToken.safe_decode(token)
-      if payload
-        @current_user = User.find_by(id: payload["user_id"])
-        return true if @current_user
-      end
-    end
-    render_unauthorized(I18n.t("errors.auth.user_not_found")) unless @current_user
-  end
-
-  # 本番/開発環境の認証処理
-  def handle_production_authentication
-    token = extract_token
-    return render_unauthorized(I18n.t("errors.auth.missing_token")) if token.blank?
-
-    authenticate_with_token(token)
-  end
-
-  # トークンを使った認証処理
-  def authenticate_with_token(token)
-    payload = JsonWebToken.safe_decode(token)
-    return render_unauthorized(I18n.t("errors.auth.invalid_token")) unless payload
-
-    @current_user = User.find_by(id: payload["user_id"])
-    render_unauthorized(I18n.t("errors.auth.user_not_found")) unless @current_user
-  end
-
-  # authenticate_user のエイリアスメソッド（コントローラー内で使いやすいように）
-  # 既存のDeviseメソッドとの混同を避けるため明示的にprivateにする
-  alias_method :authenticate_user!, :authenticate_user
-  private :authenticate_user!
-
-  # テスト環境ではヘッダーからユーザーIDを取得するメソッドを追加
+  # TODO(!security): IPアドレスベースの追加検証
+  # トークンに記録されたIPと現在のIPを比較し、
+  # 異なる場合は追加の認証を要求する機能
+  # - GeoIPを使った大きな地理的変更の検出
+  # - 高リスク操作時の追加認証要求
+  
+  # 現在の認証済みユーザーを取得
   def current_user
-    # すでに@current_userが設定されている場合はそれを返す（本番環境対応）
-    return @current_user if @current_user
-
-    # テスト環境ではカスタムロジックを使用
-    find_user_for_test_environment if Rails.env.test?
-
-    @current_user
+    @current_user ||= User.find_by(id: @current_user_id) if @current_user_id
   end
-
-  # テスト環境用のユーザー検索処理
-  def find_user_for_test_environment
-    # テスト用ヘッダーからのユーザーID取得を試みる
-    user_id = request.headers["X-Test-User-Id"]
-
-    if user_id.present?
-      @current_user = User.find_by(id: user_id)
-    elsif params[:event_id].present?
-      # イベントIDからオーナーを検索
-      find_user_from_event
+  
+  # Authorizationヘッダーからトークンを抽出
+  def extract_token_from_header(header)
+    # Bearer形式のトークンを抽出
+    if header&.start_with?('Bearer ')
+      header.gsub('Bearer ', '')
     end
-
-    # 見つからない場合は最初のユーザーをデフォルトとして使用
-    @current_user ||= User.first
   end
-
-  # イベントからユーザーを検索
-  def find_user_from_event
-    event = Event.find_by(id: params[:event_id])
-    @current_user = event&.user
+  
+  # JWT cookieを設定
+  def set_jwt_cookie(token)
+    cookies.signed[:jwt] = {
+      value: token,
+      httponly: true,
+      secure: Rails.env.production?,
+      expires: 24.hours.from_now
+    }
   end
-
-  # リクエストからJWTトークンを抽出
-  def extract_token
-    # Cookieからトークンを取得（優先）
-    token_from_cookie = cookies.signed[:jwt]
-    return token_from_cookie if token_from_cookie.present?
-
-    # 従来のヘッダーからの取得もサポート（後方互換性のため）
-    header = request.headers["Authorization"]
-    header&.split(" ")&.last
+  
+  # リフレッシュトークンcookieを設定
+  def set_refresh_token_cookie(refresh_token)
+    cookies.signed[:refresh_token] = {
+      value: refresh_token,
+      httponly: true,
+      secure: Rails.env.production?,
+      expires: 30.days.from_now
+    }
   end
-
-  def render_unauthorized(message = nil)
-    render json: {error: message || I18n.t("errors.unauthorized")}, status: :unauthorized
-  end
+  
+  # FIXME: CSRFトークン検証の実装
+  # APIでもステートフルセッションを使用する場合は、
+  # CSRF対策が必要
+  # - トークンの生成と検証メカニズム
+  # - 特定エンドポイントでの検証
 end

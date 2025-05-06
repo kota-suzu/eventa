@@ -5,10 +5,23 @@ class JsonWebToken
   TOKEN_EXPIRY = Rails.configuration.x.jwt[:expiration] || 24.hours
   # アルゴリズム
   ALGORITHM = "HS256"
+
+  # TODO(!security): アルゴリズムをHS256からより強力なRS256に変更する
+  # - 公開鍵/秘密鍵ペアを使用する方式に移行
+  # - キーのローテーション機能を追加
+  # - 移行期間中は両方のアルゴリズムをサポート
+
   # アプリケーション識別子（発行者）
   ISSUER = Rails.application.credentials.jwt_issuer || "eventa-api-#{Rails.env}"
   # 想定される受信者（サービス名）
   AUDIENCE = Rails.application.credentials.jwt_audience || "eventa-client"
+
+  # TODO: トークンリボケーション（失効）の仕組みを追加
+  # 現在はJWTの有効期限のみでセキュリティを確保しているが、
+  # 以下の改善が必要:
+  # - Redisを使用したブラックリスト方式の実装
+  # - JWTIをキーとしたトークン管理
+  # - ユーザーIDベースの全トークン失効機能
 
   class << self
     # JWTトークンのエンコード - expを自動付与
@@ -38,6 +51,11 @@ class JsonWebToken
     def add_expiry_claim(payload, exp)
       payload[:exp] = calculate_expiry(exp)
     end
+
+    # OPTIMIZE: JWTの署名と検証処理のパフォーマンス最適化
+    # 現在の実装は都度計算しているが、頻繁に使用される処理なので改善の余地あり
+    # - キャッシュ層の導入
+    # - ハードウェアアクセラレーションの活用（可能な場合）
 
     # 有効期限を計算
     def calculate_expiry(exp)
@@ -193,6 +211,10 @@ class JsonWebToken
 
       create_refresh_token(user_id, session_id)
     end
+
+    # TODO(!feature): デバイス情報を含めた多要素認証対応
+    # リフレッシュトークン生成時にデバイス情報を含め、
+    # 不審なデバイスからのアクセス時に追加認証を要求する機能
 
     # リフレッシュトークンの作成処理
     def create_refresh_token(user_id, session_id)

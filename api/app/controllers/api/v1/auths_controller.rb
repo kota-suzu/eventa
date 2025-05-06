@@ -36,33 +36,26 @@ module Api
 
       # POST /api/v1/auth/login
       def login
-        # authハッシュからのパラメータとルートレベルの両方をサポート
-        email = auth_params[:email]
-        password = auth_params[:password]
+        user = User.find_by(email: auth_params[:email])
 
-        @user = User.authenticate(email, password)
+        # TODO(!security): レート制限を実装して、ブルートフォース攻撃を防止
+        # 同一IPアドレスからの連続失敗回数を制限する
+        # - Rackの制限ミドルウェアか、Redisベースの実装を検討
+        # - 失敗回数に応じて遅延を増加させる仕組みを導入
 
-        if @user
-          # アクセストークンとリフレッシュトークンを生成
-          token = generate_jwt_token(@user)
-          refresh_token, _ = JsonWebToken.generate_refresh_token(@user.id)
+        if user&.authenticate(auth_params[:password])
+          # アクセストークンとリフレッシュトークンを発行
+          token, refresh_token, _ = issue_tokens(user)
 
-          # Cookieにも保存
-          set_jwt_cookie(token)
-          set_refresh_token_cookie(refresh_token)
-
-          # ユーザーのセッション情報を保存（通常はRedisなどに保存）
-          # SessionManager.save_session(user_id: @user.id, session_id: session_id)
-
+          # 成功レスポンスを返す
           render json: {
-            user: user_response(@user),
             token: token,
-            refresh_token: refresh_token
+            refresh_token: refresh_token,
+            user: UserSerializer.new(user).as_json
           }, status: :ok
         else
-          render json: {
-            error: I18n.t("auth.invalid_credentials")
-          }, status: :unauthorized
+          # 認証失敗
+          render json: {error: "無効なメールアドレスまたはパスワードです"}, status: :unauthorized
         end
       end
 
@@ -85,6 +78,47 @@ module Api
 
         # 新しいアクセストークンを生成して返す
         issue_new_token(user)
+      end
+
+      # トークンリフレッシュ処理
+      def refresh
+        refresh_token = params[:refresh_token]
+
+        begin
+          decoded_token = JsonWebToken.decode(refresh_token)
+
+          # リフレッシュトークンの検証
+          if decoded_token["token_type"] != "refresh"
+            return render json: {error: "無効なトークンタイプです"}, status: :unauthorized
+          end
+
+          user = User.find(decoded_token["user_id"])
+          token, new_refresh_token, _ = issue_tokens(user)
+
+          render json: {
+            token: token,
+            refresh_token: new_refresh_token,
+            user: UserSerializer.new(user).as_json
+          }, status: :ok
+        rescue JWT::DecodeError, ActiveRecord::RecordNotFound
+          render json: {error: "リフレッシュトークンが無効です"}, status: :unauthorized
+        end
+      end
+
+      # TODO(!feature): ソーシャルログイン機能の実装
+      # GoogleやGitHubなどのOAuth2認証プロバイダを使用した
+      # ソーシャルログインの実装
+      # - Omniauthを使用してプロバイダ連携
+      # - 既存アカウントとのリンク機能
+      # - JWTトークン発行プロセスの統一
+
+      # ログアウト処理
+      def logout
+        # TODO: ログアウト時のトークン無効化機能を実装
+        # 現在はクライアント側でのトークン削除のみに依存している
+        # - セッションID(jti)をブラックリストに追加
+        # - Redis等を使用した無効化リスト管理
+        render json: {message: "ログアウトしました"}, status: :ok
       end
 
       private
@@ -171,12 +205,7 @@ module Api
       end
 
       def auth_params
-        # authハッシュがある場合はそれを使い、なければルートレベルのパラメータを使用
-        if params[:auth].present?
-          params.require(:auth).permit(:email, :password, :remember)
-        else
-          params.permit(:email, :password, :remember)
-        end
+        params.require(:auth).permit(:email, :password)
       end
 
       def generate_jwt_token(user)
@@ -226,6 +255,22 @@ module Api
           role: user.role,
           created_at: user.created_at
         }
+      end
+
+      # トークン発行プロセス
+      def issue_tokens(user)
+        # アクセストークンの作成
+        payload = {user_id: user.id}
+        token = JsonWebToken.encode(payload)
+
+        # リフレッシュトークンの作成
+        refresh_token, session_id = JsonWebToken.generate_refresh_token(user.id)
+
+        # TODO: セッション管理テーブルへの保存
+        # ユーザーのセッション情報（デバイス、IP、トークンの失効状態）を
+        # データベースに保存して管理する
+
+        [token, refresh_token, session_id]
       end
     end
   end
