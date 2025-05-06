@@ -167,6 +167,8 @@ setup: ## 🔧 依存関係インストール + DB準備
 	$(banner) "バックエンドの依存関係インストール"
 	$(COMPOSE) exec api bundle config set --local without ''
 	$(COMPOSE) exec api bundle config set --local deployment 'false'
+	# デフォルトgemとの競合を避けるための設定
+	$(COMPOSE) exec api bash -c 'cd /app && if grep -q "error_highlight" Gemfile; then sed -i -e "/error_highlight/s/^/if Gem::Version.new(RUBY_VERSION) >= Gem::Version.new(\x27\3.3.0\x27\)\n  /" -e "/error_highlight/s/$/\nend/" Gemfile; fi'
 	$(COMPOSE) exec api bundle update && $(COMPOSE) exec api bundle install
 	$(banner) "Stripe gemの確認とインストール"
 	$(COMPOSE) exec api bundle show stripe || $(COMPOSE) exec api bundle add stripe

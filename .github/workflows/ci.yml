@@ -38,8 +38,17 @@ jobs:
           bundler-cache: true
           working-directory: ./api
 
-      - name: Install error_highlight
-        run: gem install error_highlight -v '0.7.0'
+      # error_highlightのインストールステップを削除
+      # - name: Install error_highlight
+      #   run: gem install error_highlight -v '0.7.0'
+      #   working-directory: ./api
+
+      # 代わりにbundlerの設定を追加
+      - name: Configure bundler
+        run: |
+          gem update --system
+          bundle config set --local without 'production'
+          bundle install --jobs 4 --retry 3
         working-directory: ./api
 
       - name: RuboCop
@@ -109,6 +118,14 @@ jobs:
           bundler-cache: true
           working-directory: ./api
 
+      # bundlerの設定を追加
+      - name: Configure bundler for tests
+        run: |
+          gem update --system
+          bundle config set --local without 'production'
+          bundle install --jobs 4 --retry 3
+        working-directory: ./api
+
       - name: RSpec with SimpleCov
         run: bundle exec rspec --format progress
         working-directory: ./api
@@ -163,6 +180,14 @@ jobs:
           ruby-version: '3.2.2'
           bundler-cache: true
           working-directory: ./api
+
+      # bundlerの設定を追加
+      - name: Configure bundler for race tests
+        run: |
+          gem update --system
+          bundle config set --local without 'production'
+          bundle install --jobs 4 --retry 3
+        working-directory: ./api
 
       - name: Install parallel_tests
         run: gem install parallel_tests
