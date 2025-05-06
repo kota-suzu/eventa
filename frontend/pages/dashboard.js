@@ -5,6 +5,30 @@ import Link from 'next/link';
 import { useAuth } from '../contexts/AuthContext';
 import styles from '../styles/Dashboard.module.css';
 
+// TODO(!frontend): ユーザーダッシュボードの機能強化
+// ダッシュボードに以下の機能を追加：
+// - イベント管理（作成、編集、削除）
+// - チケット購入履歴と管理
+// - 収益・売上分析（主催者向け）
+// - お気に入りイベント管理
+
+// TODO(!frontend): APIからユーザー関連イベントを取得
+// ユーザーが主催または参加予定のイベントをAPIから取得し、
+// 直感的なカレンダービューとリスト表示で提示。
+
+// TODO(!frontend): レスポンシブデザインの最適化
+// モバイル、タブレット、デスクトップの各画面サイズに
+// 最適化されたレイアウトを実装。コンポーネントの再利用性も高める。
+
+// TODO(!frontend): ユーザー設定管理機能
+// プロフィール編集、通知設定、セキュリティ設定、
+// 支払い方法管理などの設定機能を追加。
+
+// TODO(!feature): アクセシビリティ対応
+// WAI-ARIAに準拠したアクセシブルなUI実装。
+// キーボードナビゲーション、スクリーンリーダー対応、
+// カラーコントラスト考慮などを含む。
+
 // ダッシュボードページ
 const Dashboard = () => {
   const { user, isAuthenticated, loading, hasRole } = useAuth();
@@ -29,7 +53,7 @@ const Dashboard = () => {
         setIsLoading(true);
         setError(null);
 
-        // TODO: APIからユーザー関連イベントを取得
+        // TODO(!frontend): APIからユーザー関連イベントを取得
         // const response = await api.get('/api/v1/events/user');
         // setUserEvents(response.data);
 

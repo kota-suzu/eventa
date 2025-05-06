@@ -309,4 +309,19 @@ RSpec.describe ApplicationController, type: :controller do
       controller.send(:render_unauthorized, custom_message)
     end
   end
+
+  # TODO(!documentation): テストカバレッジを高める
+  # 以下の領域のテストを追加・強化：
+  # - 認証フロー全体（登録からログアウトまで）
+  # - エッジケースとエラーケース
+  # - セキュリティ関連機能（トークン検証、権限管理など）
+  # - パフォーマンス関連のテスト
+
+  # TODO(!feature): E2Eテストの追加
+  # エンドツーエンドテストを追加し、ユーザーフローの完全性を確認。
+  # Cypress、Puppeteer、またはCapybaraなどのツールを検討。
+
+  # TODO(!feature): ストレステストの実装
+  # 大量同時アクセス時のシステム挙動を検証するストレステスト。
+  # JMeterやk6などのツールを使用した負荷テストの自動化。
 end

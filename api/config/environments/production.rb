@@ -83,4 +83,22 @@ Rails.application.configure do
   #
   # Skip DNS rebinding protection for the default health check endpoint.
   # config.host_authorization = { exclude: ->(request) { request.path == "/up" } }
+
+  # TODO(!performance): 水平スケーリング対応
+  # アプリケーションを水平スケーリング可能にするための対応：
+  # - ステートレス設計の徹底
+  # - セッション状態の外部ストア（Redisなど）への移動
+  # - 分散環境でのロック機構の実装
+
+  # TODO(!performance): CDN統合とアセット最適化
+  # 静的アセットの配信を最適化：
+  # - CDNとの統合（AWS CloudFrontなど）
+  # - アセットのキャッシュ戦略
+  # - 画像の最適化とレスポンシブ対応
+
+  # TODO(!feature): サーバーレスアーキテクチャの検討
+  # 特定の機能をサーバーレスアーキテクチャに移行：
+  # - バッチ処理やバックグラウンドジョブをLambdaなどに移行
+  # - スケーラビリティとコスト効率の向上
+  # - 管理オーバーヘッドの削減
 end

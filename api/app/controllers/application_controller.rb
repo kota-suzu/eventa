@@ -10,6 +10,10 @@ class ApplicationController < ActionController::API
   # - レート制限の効率的実装
   # - バッチ処理用の特殊認証
 
+  # TODO(!feature!urgent): グローバルエラーハンドリングの強化
+  # すべてのコントローラーで一貫したエラーレスポンスを提供するために、
+  # エラーハンドリングを強化。詳細なエラーコードと多言語対応メッセージを実装。
+
   # エラーレスポンス用のヘルパーメソッド
   def render_error(message, status = :unprocessable_entity)
     render json: {error: message}, status: status
@@ -20,12 +24,17 @@ class ApplicationController < ActionController::API
     render json: {error: message}, status: :unauthorized
   end
 
-  # TODO(!feature): グローバルエラーハンドリングの強化
-  # 一貫性のあるエラーレスポンスフォーマットを実装
-  # - エラーコード体系の整備
-  # - 多言語対応エラーメッセージ
-  # - 開発環境でのデバッグ情報追加
-  # - 本番環境でのセキュアなエラー情報
+  # TODO(!security): IPアドレスベースの追加検証
+  # 怪しいIPアドレスからのアクセスを検知・制限するシステムを実装。
+  # GeoIPデータベースとの連携や、既知の悪意あるIPリストとの照合も行う。
+
+  # TODO(!performance): レスポンスキャッシュの最適化
+  # 頻繁にアクセスされるエンドポイントのレスポンスをキャッシュし、
+  # パフォーマンスを向上。ETagによる条件付きリクエストもサポート。
+
+  # TODO(!feature): APIレート制限の実装
+  # すべてのAPIリクエストに対するレート制限を実装し、
+  # スロットリングとクォータ管理によりサービス安定性を確保。
 
   private
 
@@ -55,12 +64,6 @@ class ApplicationController < ActionController::API
       render_unauthorized("無効なトークンです: #{e.message}")
     end
   end
-
-  # TODO(!security): IPアドレスベースの追加検証
-  # トークンに記録されたIPと現在のIPを比較し、
-  # 異なる場合は追加の認証を要求する機能
-  # - GeoIPを使った大きな地理的変更の検出
-  # - 高リスク操作時の追加認証要求
 
   # 現在の認証済みユーザーを取得
   def current_user

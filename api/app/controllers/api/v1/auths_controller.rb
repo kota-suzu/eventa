@@ -6,6 +6,10 @@ module Api
       # 認証をスキップ - 新規登録とログインは認証不要
       skip_before_action :authenticate_user, only: [:register, :login, :refresh_token]
 
+      # TODO(!security!urgent): レート制限を実装して、ブルートフォース攻撃を防止
+      # ログインやパスワードリセット機能に対して、IPアドレスベースのレート制限を実装。
+      # 失敗回数に応じて遅延や一時的なブロックを行う機能も追加する。
+
       # POST /api/v1/auth/register
       def register
         @user = User.new(user_params)
@@ -106,11 +110,12 @@ module Api
       end
 
       # TODO(!feature): ソーシャルログイン機能の実装
-      # GoogleやGitHubなどのOAuth2認証プロバイダを使用した
-      # ソーシャルログインの実装
-      # - Omniauthを使用してプロバイダ連携
-      # - 既存アカウントとのリンク機能
-      # - JWTトークン発行プロセスの統一
+      # OAuth2ベースのソーシャルログイン（Google、GitHub、Twitterなど）を追加。
+      # 既存アカウントとの連携機能も含める。
+
+      # TODO(!security): ログアウト時のトークン無効化機能を実装
+      # ログアウト時にJWTトークンを無効化し、リフレッシュトークンも削除する。
+      # Redisベースのブラックリスト方式を使用。
 
       # ログアウト処理
       def logout
@@ -266,7 +271,7 @@ module Api
         # リフレッシュトークンの作成
         refresh_token, session_id = JsonWebToken.generate_refresh_token(user.id)
 
-        # TODO: セッション管理テーブルへの保存
+        # TODO(!security): セッション管理テーブルへの保存
         # ユーザーのセッション情報（デバイス、IP、トークンの失効状態）を
         # データベースに保存して管理する
 

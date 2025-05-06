@@ -4,6 +4,30 @@
 class PaymentService
   attr_reader :reservation, :payment_params
 
+  # 支払い処理サービスクラス
+  # このサービスは決済処理を抽象化し、複数の決済プロバイダをサポートします
+
+  # TODO(!feature!urgent): 支払い処理システムの完全実装
+  # Stripeをメインの決済プロバイダとして完全統合し、
+  # 決済処理、返金、サブスクリプション管理などの機能を実装。
+  # エラーハンドリングとリトライロジックも強化。
+
+  # TODO(!feature): 決済履歴管理機能
+  # ユーザーごとの決済履歴を管理し、履歴表示、請求書発行、
+  # 領収書ダウンロード機能などを実装。取引履歴の長期保存も対応。
+
+  # TODO(!security): 決済セキュリティ強化
+  # PCI DSS準拠のための対策を実装。カード情報の安全な取り扱い、
+  # 不正検知システム、リスク評価による追加認証などを含む。
+
+  # TODO(!feature): 返金処理システム
+  # イベントのキャンセルやユーザーからの返金リクエストに対応する
+  # 柔軟な返金処理システムを実装。部分返金や払い戻しポリシーの適用も可能に。
+
+  # TODO(!feature): 複数決済方法のサポート
+  # クレジットカード以外にも、銀行振込、PayPal、Apple Pay、
+  # Google Pay、コンビニ決済などの多様な決済方法をサポート。
+
   def initialize(reservation, payment_params)
     @reservation = reservation
     @payment_params = payment_params

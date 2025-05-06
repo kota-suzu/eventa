@@ -4,11 +4,13 @@ class User < ApplicationRecord
   # role を enum として定義
   enum :role, {guest: 0, organizer: 1, admin: 2}, default: :guest
 
-  # TODO: ロールベースのアクセス制御（RBAC）を強化
-  # 現在の単純なロール管理から、より詳細な権限管理システムへ移行
-  # - 細分化された権限（パーミッション）の導入
-  # - イベントごとの権限設定
-  # - 権限委譲機能
+  # TODO(!feature): ロールベースのアクセス制御（RBAC）を強化
+  # 現在の単純なrole列を拡張し、より柔軟なRBACシステムを実装。
+  # 権限グループやリソースベースの権限管理を追加し、管理UIも実装する。
+
+  # TODO(!security!urgent): パスワード強度のバリデーションを強化
+  # パスワードポリシーを強化し、長さ、複雑さ、一般的なパスワードリストとの照合、
+  # 過去に使用したパスワードの再利用防止などの機能を追加する。
 
   # バリデーション
   validates :email, presence: true,
@@ -33,11 +35,8 @@ class User < ApplicationRecord
   has_many :reservations, dependent: :destroy  # ユーザーが削除されたら予約も削除
 
   # TODO(!feature): 二要素認証(2FA)の実装
-  # セキュリティ強化のための二要素認証機能
-  # - TOTPベースの実装（Google Authenticator互換）
-  # - SMS/電話によるバックアップ認証
-  # - リカバリーコードの生成と管理
-  # - 認証フロー全体の設計
+  # TOTPベースの2FAと、バックアップコードによるリカバリーシステムを実装。
+  # 認証アプリ（Google AuthenticatorやAuthyなど）との連携をサポート。
 
   # アカウント状態管理
   enum :status, {
@@ -70,11 +69,13 @@ class User < ApplicationRecord
     user.authenticate(password) ? user : nil
   end
 
-  # TODO: アカウントロック機能の実装
-  # 連続した認証失敗に対するセキュリティ対策
-  # - 失敗回数のカウントと閾値設定
-  # - 一時的ロックと管理者による解除機能
-  # - メール通知によるユーザーへの警告
+  # TODO(!security): アカウントロック機能の実装
+  # 連続した認証失敗に対して、一定時間アカウントをロックする機能。
+  # 不正アクセス検知とアラート通知システムも実装する。
+
+  # TODO(!feature): プロフィール管理機能の拡張
+  # ユーザープロフィールの詳細情報（プロフィール画像、SNSリンク、
+  # 自己紹介など）を管理する機能を追加。アバター画像のアップロードと処理も実装。
 
   # メールアドレス正規化（保存前）
   before_save :normalize_email
