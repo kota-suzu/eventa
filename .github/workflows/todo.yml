@@ -1,6 +1,5 @@
 name: "TODO to Issue"
 
-
 on:
   push:
     branches: [ main, develop ]
@@ -57,6 +56,6 @@ jobs:
           INSERT_ISSUE_URLS: true
           AUTO_ASSIGN: 'kota-suzu'
 
-          # ←★ 修正済み ★→
+          # 除外パターン
           IGNORE: '(^|/)node_modules/.*,(^|/)vendor/.*,.*\.lock$'
 
