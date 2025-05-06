@@ -5,6 +5,7 @@ FactoryBot.define do
     password_confirmation { "password123" }
     name { "Test User" }
     role { :guest }
+    status { :active }
 
     factory :organizer do
       role { :organizer }

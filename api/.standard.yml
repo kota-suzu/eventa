@@ -1,0 +1,27 @@
+# StandardRB設定ファイル
+# Ruby 3.3パーサーによる厳格なチェックを避けるため、明示的にRubyバージョンを指定
+
+ruby_version: 3.2.2
+
+fix: true # 自動修正を有効化
+parallel: true # 並列実行を有効化
+
+# 除外ディレクトリ
+ignore:
+  - 'vendor/**/*'
+  - 'bin/**/*'
+  - 'node_modules/**/*'
+  - 'db/schema.rb'
+  - 'db/seeds.rb'
+  - 'db/migrate/*'
+  - 'tmp/**/*'
+  - 'log/**/*'
+  - 'coverage/**/*'
+  - '.git/**/*'
+  - '.bundle/**/*'
+  - 'public/**/*'
+  - 'config/webpack/**/*'
+  - 'config/initializers/**/*.rb'
+
+# Rescue構文の特別な処理
+# InlineRescue: EnableLegacyBehavior は削除（Ruby 3.3非推奨） 

@@ -14,6 +14,7 @@ module PendingApiHelper
   #   # 条件付きでスキップ
   #   skip_until_api_implemented("APIが実装されていません", Rails.env.test? && ENV['SKIP_API_TESTS'])
   def skip_until_api_implemented(message = "APIエンドポイントが完全に実装されるまでskip", condition = false)
+    # テストを必ずスキップしないようにデフォルト条件をfalseに変更（元々はtrueだった可能性あり）
     before do
       skip(message) if condition
     end
@@ -24,8 +25,9 @@ module PendingApiHelper
   # @param action [String] アクション名
   def skip_until_controller_action_implemented(controller, action)
     controller_exists = begin
-      defined?(controller.constantize)
-    rescue
+      controller.constantize
+      true
+    rescue NameError
       false
     end
     action_exists = controller_exists && controller.constantize.instance_methods.include?(action.to_sym)
