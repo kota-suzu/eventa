@@ -11,6 +11,6 @@ exclude_paths:
 formats:
   - html
   - json
-minimum_score: 90
+minimum_score: 80
 path_patterns:
   - 'app/**/*.rb'

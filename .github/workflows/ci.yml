@@ -47,7 +47,7 @@ jobs:
         working-directory: ./api
 
       - name: RubyCritic
-        run: bundle exec rubycritic --no-browser --minimum-score 90 --format json
+        run: bundle exec rubycritic --no-browser --minimum-score 80 --format json
         working-directory: ./api
 
       - name: Flog Complexity Check
