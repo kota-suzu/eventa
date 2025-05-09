@@ -89,3 +89,31 @@ Thumbs.db
 
 # データベース設定
 /mysql_config/
+
+# バックアップファイルと開発過程のファイル
+*.backup
+*.simple
+*.fixed
+*.no_creds
+test.rb.*
+test_environment_fix_wrapper.rb
+
+# 認証情報と環境変数
+test.env
+test_credentials_template.yml
+test_creds_content.yml
+**/config/credentials/*.key
+**/config/master.key
+**/config/credentials/*.yml.enc
+
+# テスト関連
+coverage.xml
+.rspec_status
+
+# データベース関連
+*.dump
+*.sql
+
+# エディタ/IDE設定
+.project
+.classpath

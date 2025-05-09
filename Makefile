@@ -2,6 +2,20 @@
 # Eventa Makefile v2-parallel-fixed + coverage (2025-05-05)
 ############################################
 
+###############################
+# Environment for test target #
+###############################
+# テスト環境用の安全な固定キー
+export RAILS_ENV = test
+export RAILS_MASTER_KEY = 0123456789abcdef0123456789abcdef
+export SECRET_KEY_BASE = test_secret_key_base_for_safe_testing_only
+export RAILS_ENCRYPTION_PRIMARY_KEY = 00000000000000000000000000000000
+export RAILS_ENCRYPTION_DETERMINISTIC_KEY = 11111111111111111111111111111111
+export RAILS_ENCRYPTION_KEY_DERIVATION_SALT = 2222222222222222222222222222222222222222222222222222222222222222
+export JWT_SECRET_KEY = test_jwt_secret_key_for_tests_only
+# Git警告対応 (docker内でのgit操作警告を抑制)
+export GIT_DISCOVERY_ACROSS_FILESYSTEM = 1
+
 # TODO: docker-compose.yml の `version` 属性の削除
 # 警告が出ているので、docker compose 互換性のため将来的に削除する
 
@@ -19,10 +33,6 @@ JOBS           ?= $(shell nproc)            # 並列度 (上書き可)
 MAKEFLAGS      += --silent -j$(JOBS) -k     # -k: エラーでも続行
 .RECIPEPREFIX  = \	                        # 可視タブ
 .ONESHELL:
-
-# Rails master.keyをホストから読み込み、コンテナに環境変数として渡す
-# 仕組み：Rails 8ではcredentials/encryptionに使われるキーは必ず16バイト必要
-MASTER_KEY     := $(shell cat api/config/master.key 2>/dev/null)
 
 COMPOSE  := docker compose
 DB_PASS  ?= rootpass
@@ -147,6 +157,7 @@ coverage-summary: ## 🔍 直近テストのカバレッジ要約
 
 .NOTPARALLEL: full-check
 full-check: ## 🔍 全体チェック（Lint + Test）
+	@echo "Running full-check with $(RAILS_ENV)"
 	$(banner) "全体チェック実行"
 	@$(MAKE) db-test-health || \
 	(echo "\033[1;33m⚠️ テストデータベースの健全性チェックに失敗しました。修復してリトライします...\033[0m" && \
@@ -413,6 +424,23 @@ test-schema-dry-run: ## 🔍 テスト環境のスキーマDRYラン
 	$(banner) "テスト環境スキーマDRYラン"
 	@echo "テスト環境のスキーマをチェックしています..."
 	@$(COMPOSE) exec -e RAILS_ENV=test -e RAILS_MASTER_KEY=$(MASTER_KEY) api bundle exec rails ridgepole:dry_run
+
+### ===== JWT認証テスト ===== ###
+jwt-test-setup: ## 🔑 JWT認証テスト環境のセットアップ
+	$(banner) "JWT認証テスト環境をセットアップ"
+	$(COMPOSE) exec -e RAILS_ENV=test -e RAILS_MASTER_KEY=0123456789abcdef0123456789abcdef api bundle exec rake jwt:test:setup
+
+jwt-test: jwt-test-setup ## 🔑 JWT認証関連のテスト実行
+	$(banner) "JWT認証テスト"
+	$(COMPOSE) exec -e RAILS_ENV=test -e RAILS_MASTER_KEY=0123456789abcdef0123456789abcdef api bundle exec rake jwt:test:run
+
+jwt-test-service: jwt-test-setup ## 🔑 TokenBlacklistServiceのテスト実行
+	$(banner) "TokenBlacklistServiceテスト"
+	$(COMPOSE) exec -e RAILS_ENV=test -e RAILS_MASTER_KEY=0123456789abcdef0123456789abcdef api bundle exec rspec spec/services/token_blacklist_service_spec.rb --format documentation
+
+jwt-test-auth: jwt-test-setup ## 🔑 認証コントローラのテスト実行 
+	$(banner) "認証コントローラテスト"
+	$(COMPOSE) exec -e RAILS_ENV=test -e RAILS_MASTER_KEY=0123456789abcdef0123456789abcdef api bundle exec rspec spec/controllers/api/v1/auths_controller_spec.rb --format documentation
 
 ############################################
 # 追加ターゲットは help の自動抽出だけで OK
