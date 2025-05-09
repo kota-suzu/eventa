@@ -2,7 +2,7 @@
 
 group :development, :test do
   # 既存のgemはそのままで、以下を追加
-  gem 'rspec-rails', '~> 6.0.0'
+  gem 'rspec-rails', '~> 6.1'
   gem 'factory_bot_rails', '~> 6.2'
   gem 'faker', '~> 3.1'
 end
