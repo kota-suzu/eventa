@@ -1,0 +1,144 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# JWT認証テスト実行用の統合スクリプト
+# このスクリプトは既存のシェルスクリプトとRakeタスクを置き換え、
+# JWT認証関連のテストを実行するための統一されたインターフェースを提供します。
+
+require "optparse"
+require "fileutils"
+
+# コマンドラインオプションの解析
+options = {}
+parser = OptionParser.new do |opts|
+  opts.banner = "使用法: bin/jwt_ci [options]"
+  
+  opts.on("-a", "--all", "すべてのJWT関連テストを実行") do
+    options[:all] = true
+  end
+  
+  opts.on("-s", "--service", "TokenBlacklistServiceのテストを実行") do
+    options[:service] = true
+  end
+  
+  opts.on("-c", "--controller", "認証コントローラのテストを実行") do
+    options[:controller] = true
+  end
+  
+  opts.on("-j", "--jwt", "JsonWebTokenクラスのテストを実行") do
+    options[:jwt] = true
+  end
+  
+  opts.on("-r", "--repair", "テスト環境を修復") do
+    options[:repair] = true
+  end
+  
+  opts.on("-h", "--help", "ヘルプを表示") do
+    puts opts
+    exit
+  end
+end
+
+parser.parse!
+
+# Railsルートディレクトリの確認
+unless File.exist?("./config/application.rb")
+  puts "エラー: Railsアプリケーションのルートディレクトリで実行してください"
+  exit 1
+end
+
+# 環境変数の設定
+ENV["RAILS_ENV"] = "test"
+
+# .env.testファイルの読み込み（存在する場合）
+def load_env_test_file
+  env_file = File.join(Dir.pwd, ".env.test")
+  if File.exist?(env_file)
+    puts "テスト環境変数ファイル(.env.test)を読み込みます..."
+    File.readlines(env_file).each do |line|
+      line.strip!
+      next if line.empty? || line.start_with?("#")
+      
+      key, value = line.split("=", 2)
+      ENV[key] = value if key && value
+    end
+    puts "環境変数の読み込みが完了しました"
+  else
+    puts "注: .env.testファイルが見つかりません。デフォルト値を使用します。"
+    # デフォルト値のフォールバック
+    ENV["RAILS_MASTER_KEY"] ||= "0123456789abcdef0123456789abcdef"
+    ENV["SECRET_KEY_BASE"] ||= "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+  end
+end
+
+# 環境変数を読み込んでから処理を継続
+load_env_test_file
+
+# テスト環境の修復
+def repair_test_env
+  puts "===== テスト環境の修復を開始します ====="
+  
+  # テスト用master.keyファイルの作成
+  unless File.exist?("./config/master.key")
+    puts "テスト用のmaster.keyを作成します"
+    File.write("./config/master.key", "0123456789abcdef0123456789abcdef")
+    FileUtils.chmod(0600, "./config/master.key")
+  end
+  
+  # データベース修復
+  puts "テストデータベースを修復します..."
+  system("bundle exec rake ridgepole:repair_test || bundle exec rake db:test:emergency_repair")
+  
+  # データベース接続リセット
+  puts "データベース接続をリセットします..."
+  system("bundle exec rake db:health:reset")
+  
+  puts "✅ テスト環境修復完了"
+end
+
+# JWT認証テスト環境のセットアップ
+def setup_jwt_test_env
+  puts "===== JWT認証テスト環境をセットアップします ====="
+  system("bundle exec rake jwt:test:setup")
+end
+
+# テスト実行
+def run_tests(test_targets)
+  puts "===== JWT関連のテストを実行します ====="
+  
+  if test_targets.empty? || test_targets[:all]
+    puts "すべてのJWT関連テストを実行します"
+    system("bundle exec rspec spec/services/json_web_token_spec.rb spec/services/token_blacklist_service_spec.rb spec/controllers/api/v1/auths_controller_spec.rb")
+  else
+    if test_targets[:service]
+      puts "TokenBlacklistServiceのテストを実行します"
+      system("bundle exec rspec spec/services/token_blacklist_service_spec.rb")
+    end
+    
+    if test_targets[:controller]
+      puts "認証コントローラのテストを実行します"
+      system("bundle exec rspec spec/controllers/api/v1/auths_controller_spec.rb")
+    end
+    
+    if test_targets[:jwt]
+      puts "JsonWebTokenクラスのテストを実行します"
+      system("bundle exec rspec spec/services/json_web_token_spec.rb")
+    end
+  end
+end
+
+# メイン処理
+if options[:repair]
+  repair_test_env
+end
+
+setup_jwt_test_env
+
+if options.keys.any? { |k| [:all, :service, :controller, :jwt].include?(k) }
+  run_tests(options)
+else
+  # デフォルトですべてのテストを実行
+  run_tests(all: true)
+end
+
+puts "===== JWT CIスクリプト実行完了 =====" 

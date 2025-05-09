@@ -1,0 +1,18 @@
+version: '3'
+services:
+  api:
+    # テスト実行用の環境変数設定
+    environment:
+      # テスト環境の環境変数をCIで上書きできるよう、同じキーは末尾に追加
+      RAILS_ENV: ${RAILS_ENV:-development}
+      # テスト環境で必要な認証キー
+      RAILS_MASTER_KEY: ${RAILS_MASTER_KEY:-0123456789abcdef0123456789abcdef}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+      # ActiveRecord暗号化設定
+      AR_ENCRYPTION_PRIMARY_KEY: ${AR_ENCRYPTION_PRIMARY_KEY:-00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff}
+      AR_ENCRYPTION_DETERMINISTIC_KEY: ${AR_ENCRYPTION_DETERMINISTIC_KEY:-11223344556677889900aabbccddeeff11223344556677889900aabbccddeeff}
+      AR_ENCRYPTION_DERIVATION_SALT: ${AR_ENCRYPTION_DERIVATION_SALT:-2233445566778899aabbccddeeff00112233445566778899aabbccddeeff0011223344556677}
+    # テスト用Volume設定
+    volumes:
+      - ./api/.env.test:/app/.env.test
+      - ./api/tmp/test_results:/app/tmp/test_results 
