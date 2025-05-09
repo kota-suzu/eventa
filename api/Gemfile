@@ -73,7 +73,7 @@ group :development, :test do
   gem "standard", require: false # Rubocopベースのスタイルガイド
 
   # テスト用
-  gem "rspec-rails", "~> 6.1.0" # RSpecテスト
+  gem "rspec-rails", "~> 8.0.0" # RSpecテスト
   gem "factory_bot_rails"       # テスト用オブジェクト生成
   gem "shoulda-matchers"        # モデルテスト補助
   gem "faker"                   # ランダムデータ生成
