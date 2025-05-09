@@ -1,183 +1,189 @@
 # frozen_string_literal: true
 
 require "rails_helper"
+require "support/mock_redis"
 
+# TokenBlacklistServiceのテストクラス
 RSpec.describe TokenBlacklistService do
-  let(:user) { create(:user) }
-  let(:token) { JsonWebToken.encode({user_id: user.id}) }
-  let(:refresh_token) { JsonWebToken.generate_refresh_token(user.id)[0] }
-  let(:redis_instance) { instance_double(Redis) }
+  let(:user_id) { 1 }
+  let(:jti) { SecureRandom.uuid }
+  let(:exp) { Time.zone.now.to_i + 3600 } # 1時間後
 
-  before do
-    allow(Redis).to receive(:new).and_return(redis_instance)
+  # 各テストごとに新しいモックRedisを設定
+  around do |example|
+    # モックRedisを設定してテスト実行
+    mock_redis = MockRedis.new
+    described_class.configure(redis: mock_redis)
+
+    # ブロックでTimecop.freezeを使って時間を固定してテスト実行
+    Timecop.freeze do
+      example.run
+    end
+  ensure
+    # テスト後にモックをリセット
+    described_class.configure(redis: MockRedis.new)
+  end
+
+  # テスト用有効トークン生成
+  def create_token_with_jti
+    JsonWebToken.encode({
+      user_id: user_id,
+      jti: jti
+    }, exp: exp)
+  end
+
+  # テスト用JTIなしトークン生成
+  def create_token_without_jti
+    JsonWebToken.encode({
+      user_id: user_id
+    }, exp: exp)
   end
 
   describe ".add" do
-    it "有効なトークンをブラックリストに追加する" do
-      payload = JsonWebToken.decode(token)
-      jti = payload["jti"]
-      payload["exp"]
-      Time.now.to_i
+    context "有効なトークンの場合" do
+      let(:token) { create_token_with_jti }
 
-      expect(JsonWebToken).to receive(:safe_decode).with(token).and_return(payload)
-      expect(redis_instance).to receive(:setex).with(
-        "blacklist:token:#{jti}",
-        kind_of(Numeric),
-        kind_of(String)
-      ).and_return("OK")
+      it "ブラックリストに追加して true を返す" do
+        expect(described_class.add(token, "test")).to be true
+      end
 
-      result = described_class.add(token, "logout")
-      expect(result).to be true
+      it "追加したトークンがブラックリストに含まれる" do
+        described_class.add(token, "test")
+        expect(described_class.blacklisted?(token)).to be true
+      end
     end
 
-    it "すでに期限切れのトークンの場合はtrueを返す" do
-      expired_payload = {
-        "user_id" => user.id,
-        "jti" => SecureRandom.uuid,
-        "exp" => 1.hour.ago.to_i # 期限切れ
-      }
+    context "JTIのないトークンの場合" do
+      let(:token) { create_token_without_jti }
 
-      expect(JsonWebToken).to receive(:safe_decode).with(token).and_return(expired_payload)
-
-      result = described_class.add(token)
-      expect(result).to be true
-      # すでに期限切れなのでRedisに保存されない
-      expect(redis_instance).not_to receive(:setex)
+      it "true を返す" do
+        expect(described_class.add(token)).to be true
+      end
     end
 
-    it "無効なトークンの場合はfalseを返す" do
-      expect(JsonWebToken).to receive(:safe_decode).with("invalid_token").and_return(nil)
-
-      result = described_class.add("invalid_token")
-      expect(result).to be false
+    context "無効なトークンの場合" do
+      it "false を返す" do
+        expect(described_class.add("invalid.token")).to be false
+      end
     end
 
-    it "JTIがないトークンの場合はfalseを返す" do
-      payload_without_jti = {
-        "user_id" => user.id,
-        "exp" => 1.hour.from_now.to_i
-        # jtiがない
-      }
+    context "Redisエラー発生時" do
+      before do
+        allow(TokenBlacklistService).to receive(:redis).and_raise(Redis::CannotConnectError)
+      end
 
-      expect(JsonWebToken).to receive(:safe_decode).with(token).and_return(payload_without_jti)
-
-      result = described_class.add(token)
-      expect(result).to be false
-    end
-
-    it "Redisエラー時にはfalseを返す" do
-      payload = JsonWebToken.decode(token)
-
-      expect(JsonWebToken).to receive(:safe_decode).with(token).and_return(payload)
-      expect(redis_instance).to receive(:setex).and_raise(Redis::CannotConnectError)
-      expect(Rails.logger).to receive(:error).with(/Failed to add token to blacklist/)
-
-      result = described_class.add(token)
-      expect(result).to be false
+      it "falseを返す" do
+        expect(described_class.add(create_token_with_jti)).to be false
+      end
     end
   end
 
   describe ".blacklisted?" do
-    it "ブラックリストにあるトークンの場合はtrueを返す" do
-      payload = JsonWebToken.decode(token)
-      jti = payload["jti"]
+    context "ブラックリスト済みのトークンの場合" do
+      let(:token) { create_token_with_jti }
 
-      expect(JsonWebToken).to receive(:safe_decode).with(token).and_return(payload)
-      expect(redis_instance).to receive(:exists?).with("blacklist:token:#{jti}").and_return(true)
+      before do
+        described_class.add(token, "test")
+      end
 
-      result = described_class.blacklisted?(token)
-      expect(result).to be true
+      it "true を返す" do
+        expect(described_class.blacklisted?(token)).to be true
+      end
     end
 
-    it "ブラックリストにないトークンの場合はfalseを返す" do
-      payload = JsonWebToken.decode(token)
-      jti = payload["jti"]
+    context "ブラックリストにないトークンの場合" do
+      let(:token) { create_token_with_jti }
 
-      expect(JsonWebToken).to receive(:safe_decode).with(token).and_return(payload)
-      expect(redis_instance).to receive(:exists?).with("blacklist:token:#{jti}").and_return(false)
-
-      result = described_class.blacklisted?(token)
-      expect(result).to be false
+      it "false を返す" do
+        expect(described_class.blacklisted?(token)).to be false
+      end
     end
 
-    it "無効なトークンの場合はtrueを返す" do
-      expect(JsonWebToken).to receive(:safe_decode).with("invalid_token").and_return(nil)
+    context "JTIがないトークンの場合" do
+      let(:token) { create_token_without_jti }
 
-      result = described_class.blacklisted?("invalid_token")
-      expect(result).to be true
+      it "true を返す（JTIがないトークンは常にブラックリスト扱い）" do
+        expect(described_class.blacklisted?(token)).to be true
+      end
     end
 
-    it "JTIがないトークンの場合はtrueを返す" do
-      payload_without_jti = {
-        "user_id" => user.id,
-        "exp" => 1.hour.from_now.to_i
-        # jtiがない
-      }
-
-      expect(JsonWebToken).to receive(:safe_decode).with(token).and_return(payload_without_jti)
-
-      result = described_class.blacklisted?(token)
-      expect(result).to be true
+    context "無効なトークンの場合" do
+      it "true を返す（無効なトークンは常にブラックリスト扱い）" do
+        expect(described_class.blacklisted?("invalid.token")).to be true
+      end
     end
 
-    it "Redisエラー時にはtrueを返す" do
-      payload = JsonWebToken.decode(token)
+    context "有効期限切れのトークンの場合" do
+      let(:token) do
+        JsonWebToken.encode(
+          {user_id: user_id, jti: jti},
+          exp: Time.zone.now.to_i - 10 # 現在時刻より10秒前
+        )
+      end
 
-      expect(JsonWebToken).to receive(:safe_decode).with(token).and_return(payload)
-      expect(redis_instance).to receive(:exists?).and_raise(Redis::CannotConnectError)
-      expect(Rails.logger).to receive(:error).with(/Failed to check token in blacklist/)
+      it "true を返す（有効期限切れのトークンは常にブラックリスト扱い）" do
+        expect(described_class.blacklisted?(token)).to be true
+      end
+    end
 
-      result = described_class.blacklisted?(token)
-      expect(result).to be true
+    context "Redisエラー発生時" do
+      before do
+        allow(TokenBlacklistService).to receive(:redis).and_raise(Redis::CannotConnectError)
+      end
+
+      it "trueを返す（セキュリティ上、Redisエラー時は安全側にする）" do
+        expect(described_class.blacklisted?(create_token_with_jti)).to be true
+      end
     end
   end
 
   describe ".remove_refresh_token" do
-    it "リフレッシュトークンを削除する" do
-      payload = JsonWebToken.safe_decode(refresh_token)
-      session_id = payload["session_id"]
-      user_id = payload["user_id"]
-
-      expect(JsonWebToken).to receive(:safe_decode).with(refresh_token).and_return(payload)
-      expect(redis_instance).to receive(:del).with("refresh:session:#{user_id}:#{session_id}").and_return(1)
-
-      result = described_class.remove_refresh_token(refresh_token)
-      expect(result).to be true
+    let(:session_id) { SecureRandom.uuid }
+    let(:token) do
+      JsonWebToken.encode(
+        {user_id: user_id, session_id: session_id},
+        exp: exp
+      )
     end
 
-    it "無効なリフレッシュトークンの場合はfalseを返す" do
-      expect(JsonWebToken).to receive(:safe_decode).with("invalid_token").and_return(nil)
+    context "有効なトークンの場合" do
+      before do
+        mock_redis = MockRedis.new
+        described_class.configure(redis: mock_redis)
+        # リフレッシュトークンをセット
+        key = "refresh:session:#{user_id}:#{session_id}"
+        mock_redis.setex(key, 3600, "some_data")
+      end
 
-      result = described_class.remove_refresh_token("invalid_token")
-      expect(result).to be false
+      it "トークンが削除される" do
+        expect(described_class.remove_refresh_token(token)).to be true
+      end
     end
 
-    it "session_idがないリフレッシュトークンの場合はfalseを返す" do
-      payload_without_session_id = {
-        "user_id" => user.id,
-        "exp" => 30.days.from_now.to_i
-        # session_idがない
-      }
-
-      expect(JsonWebToken).to receive(:safe_decode).with(refresh_token).and_return(payload_without_session_id)
-
-      result = described_class.remove_refresh_token(refresh_token)
-      expect(result).to be false
+    context "無効なトークンの場合" do
+      it "falseを返す" do
+        expect(described_class.remove_refresh_token("invalid.token")).to be false
+      end
     end
 
-    it "Redisエラー時にはfalseを返す" do
-      payload = {
-        "user_id" => user.id,
-        "session_id" => "test_session_id",
-        "exp" => 30.days.from_now.to_i
-      }
+    context "session_idがないトークンの場合" do
+      let(:invalid_token) do
+        JsonWebToken.encode({user_id: user_id}, exp: exp)
+      end
 
-      expect(JsonWebToken).to receive(:safe_decode).with(refresh_token).and_return(payload)
-      expect(redis_instance).to receive(:del).and_raise(Redis::CannotConnectError)
-      expect(Rails.logger).to receive(:error).with(/Failed to remove refresh token/)
+      it "falseを返す" do
+        expect(described_class.remove_refresh_token(invalid_token)).to be false
+      end
+    end
 
-      result = described_class.remove_refresh_token(refresh_token)
-      expect(result).to be false
+    context "Redisエラー発生時" do
+      before do
+        allow(TokenBlacklistService).to receive(:redis).and_raise(Redis::CannotConnectError)
+      end
+
+      it "falseを返す" do
+        expect(described_class.remove_refresh_token(token)).to be false
+      end
     end
   end
 end

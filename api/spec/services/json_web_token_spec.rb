@@ -47,8 +47,8 @@ RSpec.describe JsonWebToken do
       it "accepts a Time object as exp" do
         time = Time.now + 2.hours
         token = described_class.encode({data: "data"}, time)
-        decoded_token = JWT.decode(token, Rails.application.credentials.secret_key_base,
-          true, {algorithm: "HS256", verify_iat: true})[0]
+        decoded_token = JWT.decode(token, described_class::SECRET_KEY,
+          true, {algorithm: described_class::ALGORITHM, verify_iat: true})[0]
 
         expect(decoded_token["exp"].to_i).to eq(time.to_i)
       end
@@ -56,16 +56,16 @@ RSpec.describe JsonWebToken do
       it "accepts a DateTime object as exp" do
         time = DateTime.now + 2.hours
         token = described_class.encode({data: "data"}, time)
-        decoded_token = JWT.decode(token, Rails.application.credentials.secret_key_base,
-          true, {algorithm: "HS256", verify_iat: true})[0]
+        decoded_token = JWT.decode(token, described_class::SECRET_KEY,
+          true, {algorithm: described_class::ALGORITHM, verify_iat: true})[0]
 
         expect(decoded_token["exp"].to_i).to eq(time.to_i)
       end
 
       it "accepts ActiveSupport::Duration as exp" do
         token = described_class.encode({data: "data"}, 2.hours)
-        decoded_token = JWT.decode(token, Rails.application.credentials.secret_key_base,
-          true, {algorithm: "HS256", verify_iat: true})[0]
+        decoded_token = JWT.decode(token, described_class::SECRET_KEY,
+          true, {algorithm: described_class::ALGORITHM, verify_iat: true})[0]
 
         expected_time = Time.now + 2.hours
         expect(decoded_token["exp"].to_i).to be_within(5).of(expected_time.to_i)
@@ -77,8 +77,8 @@ RSpec.describe JsonWebToken do
         one_hour_later = current_time + 3600 # 1時間 = 3600秒
 
         # テスト対象コードで使用されるSECRET_KEYとALGORITHMを取得
-        secret_key = Rails.application.credentials.secret_key_base
-        algorithm = "HS256"
+        secret_key = described_class::SECRET_KEY
+        algorithm = described_class::ALGORITHM
 
         # JsonWebTokenのencodeメソッドでトークンを生成
         token = described_class.encode({data: "data"}, one_hour_later.to_f)
@@ -103,16 +103,16 @@ RSpec.describe JsonWebToken do
       it "accepts an integer as exp" do
         time = (Time.now + 2.hours).to_i
         token = described_class.encode({data: "data"}, time)
-        decoded_token = JWT.decode(token, Rails.application.credentials.secret_key_base,
-          true, {algorithm: "HS256", verify_iat: true})[0]
+        decoded_token = JWT.decode(token, described_class::SECRET_KEY,
+          true, {algorithm: described_class::ALGORITHM, verify_iat: true})[0]
 
         expect(decoded_token["exp"].to_i).to eq(time)
       end
 
       it "handles nil expiry by using default expiry" do
         token = described_class.encode({data: "data"}, nil)
-        decoded_token = JWT.decode(token, Rails.application.credentials.secret_key_base,
-          true, {algorithm: "HS256", verify_iat: true})[0]
+        decoded_token = JWT.decode(token, described_class::SECRET_KEY,
+          true, {algorithm: described_class::ALGORITHM, verify_iat: true})[0]
 
         expected_time = Time.now + 24.hours
         expect(decoded_token["exp"].to_i).to be_within(5).of(expected_time.to_i)
