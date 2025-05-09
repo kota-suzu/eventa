@@ -21,32 +21,6 @@ module AuthTestHelper
       "Content-Type" => "application/json"
     }
   end
-
-  # 認証済みGETリクエストのショートカット
-  def authenticated_get(path, user, params = {})
-    get path, params: params, headers: auth_headers_for(user)
-  end
-
-  # 認証済みPOSTリクエストのショートカット
-  def authenticated_post(path, user, params = {})
-    post path, params: params.to_json, headers: auth_headers_for(user)
-  end
-
-  # 認証済みPUTリクエストのショートカット
-  def authenticated_put(path, user, params = {})
-    put path, params: params.to_json, headers: auth_headers_for(user)
-  end
-
-  # 認証済みDELETEリクエストのショートカット
-  def authenticated_delete(path, user, params = {})
-    delete path, params: params.to_json, headers: auth_headers_for(user)
-  end
-
-  # トークンの有効期限切れをシミュレート
-  def expired_token_for(user)
-    payload = {user_id: user.id, exp: 1.day.ago.to_i}
-    JWT.encode(payload, Rails.configuration.x.jwt[:secret], "HS256")
-  end
 end
 
 # RSpecに組み込み

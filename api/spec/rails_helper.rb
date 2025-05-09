@@ -5,9 +5,18 @@ require "spec_helper"
 require "rspec/retry"  # rspec-retryを追加
 
 ENV["RAILS_ENV"] ||= "test"
+ENV["JWT_SECRET_KEY_DEV"] ||= "test_jwt_secret_key_#{Time.now.to_i}"
+
+# テスト環境用の基本設定（Railsロード前）
+ENV["RAILS_MASTER_KEY"] ||= "0123456789abcdef0123456789abcdef"
+ENV["SECRET_KEY_BASE"] ||= "test_secret_key_base_for_safe_testing_only"
+
 require_relative "../config/environment"
 # Prevent database truncation if the environment is production
 abort("The Rails environment is running in production mode!") if Rails.env.production?
+
+# テスト環境用の認証情報パッチをRailsロード後に読み込み
+require_relative "support/credentials_patch"
 
 require "rspec/rails"
 
@@ -19,6 +28,9 @@ require "database_cleaner/active_record"
 
 # データベース接続ヘルパーを読み込み
 require_relative "../lib/db_connection_helper"
+
+# JWT認証テスト用にMockRedisを設定
+require_relative "support/mock_redis"
 
 # テストデータベースの初期化を実行
 begin
@@ -149,6 +161,11 @@ RSpec.configure do |config|
     # データベースの状態を確認
     TestDatabaseBootstrap.ensure_schema!
     puts "✓ テストデータベーススキーマの検証が完了しました"
+
+    # TokenBlacklistServiceにMockRedisを設定
+    if defined?(TokenBlacklistService)
+      TokenBlacklistService.configure(redis: MockRedis.new)
+    end
   rescue => e
     puts "⚠️ テストデータベースのスキーマに問題があります: #{e.message}"
     puts "スキーマを修復します..."
@@ -221,3 +238,14 @@ end
 
 # 最終データベース構成の確認
 puts "テストデータベース準備完了: #{ActiveRecord::Base.connection.current_database} ✓"
+
+# shoulda-matchersの設定
+Shoulda::Matchers.configure do |config|
+  config.integrate do |with|
+    with.test_framework :rspec
+    with.library :rails
+  end
+end
+
+# shoulda-matchers設定
+require_relative "support/matchers"

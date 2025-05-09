@@ -5,7 +5,7 @@ module AuthHelpers
       user_id: user.id,
       exp: 24.hours.from_now.to_i
     }
-    JWT.encode(payload, Rails.application.credentials.secret_key_base, "HS256")
+    JWT.encode(payload, JsonWebToken::SECRET_KEY, JsonWebToken::ALGORITHM)
   end
 
   # 認証ヘッダーを設定するメソッド

@@ -40,6 +40,37 @@ end
 
 require "timeout" # タイムアウト機能を使用するために追加
 
+# .env.testファイルがあれば読み込む（dotenv-railsがない場合の対応）
+def load_test_env
+  env_file = File.expand_path("../.env.test", File.dirname(__FILE__))
+  if File.exist?(env_file)
+    File.readlines(env_file).each do |line|
+      if line =~ /\A([A-Za-z0-9_]+)=(.*)\z/
+        ENV[$1] = $2.strip
+      end
+    end
+  end
+end
+
+# テスト環境の環境変数をセットアップ
+def setup_test_env
+  # ActiveSupport::MessageEncryptor::InvalidMessage エラー対策
+  ENV["RAILS_MASTER_KEY"] ||= "0123456789abcdef0123456789abcdef"
+  ENV["SECRET_KEY_BASE"] ||= "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+
+  # ActiveRecord暗号化キー設定
+  ENV["AR_ENCRYPTION_PRIMARY_KEY"] ||= "0" * 32
+  ENV["AR_ENCRYPTION_DETERMINISTIC_KEY"] ||= "1" * 32
+  ENV["AR_ENCRYPTION_DERIVATION_SALT"] ||= "2" * 64
+
+  # テスト環境固定
+  ENV["RAILS_ENV"] = "test"
+end
+
+# 環境変数のセットアップ実行
+load_test_env
+setup_test_env
+
 RSpec.configure do |config|
   # rspec-expectations config goes here. You can use an alternate
   # assertion/expectation library such as wrong or the stdlib/minitest

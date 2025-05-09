@@ -8,6 +8,14 @@ require "active_support/core_ext/integer/time"
 Rails.application.configure do
   # Settings specified here will take precedence over those in config/application.rb.
 
+  # テスト環境では認証情報を使用しない設定
+  config.require_master_key = false
+  config.read_encrypted_secrets = false
+
+  # テスト環境では固定キーを使用（環境変数から取得またはデフォルト値を使用）
+  ENV["RAILS_MASTER_KEY"] ||= "0123456789abcdef0123456789abcdef"
+  ENV["SECRET_KEY_BASE"] ||= "test_secret_key_base_for_testing_only"
+
   # テスト環境では、アプリケーションは通常の応答コードではなく例外を発生させます
   config.consider_all_requests_local = true
   config.action_controller.perform_caching = false
@@ -47,7 +55,7 @@ Rails.application.configure do
   config.active_support.test_order = :random
 
   # テスト中は不要な情報をログに出力しない
-  config.log_level = :error
+  config.log_level = :warn
 
   # テスト実行時のパフォーマンス向上
   config.eager_load = false
@@ -56,11 +64,18 @@ Rails.application.configure do
   # Test::Unit互換性サポート
   config.active_support.deprecation = :stderr
 
-  # Raises error for missing translations.
-  # config.i18n.raise_on_missing_translations = true
+  # 暗号化キーを環境変数から取得（シンプルな構成へ）
+  # テスト環境ではActiveRecord暗号化の固定キー値を設定
+  if defined?(ActiveRecord::Encryption)
+    config.active_record.encryption.primary_key = ENV.fetch("RAILS_ENCRYPTION_PRIMARY_KEY", "00000000000000000000000000000000")
+    config.active_record.encryption.deterministic_key = ENV.fetch("RAILS_ENCRYPTION_DETERMINISTIC_KEY", "11111111111111111111111111111111")
+    config.active_record.encryption.key_derivation_salt = ENV.fetch("RAILS_ENCRYPTION_KEY_DERIVATION_SALT", "2222222222222222222222222222222222222222222222222222222222222222")
+    config.active_record.encryption.support_unencrypted_data = true
+    config.active_record.encryption.extend_queries = true
+  end
 
-  # Annotate rendered view with file names.
-  # config.action_view.annotate_rendered_view_with_filenames = true
+  # テスト環境でのJWTシークレットキー設定
+  ENV["JWT_SECRET_KEY"] ||= "test_jwt_secret_key_for_tests_only"
 
   # 各テスト実行前にActive RecordのSQLタイマーをリセット
   config.after_initialize do
@@ -74,4 +89,8 @@ Rails.application.configure do
   rescue LoadError => e
     puts "FactoryBotの読み込みに失敗しました: #{e.message}"
   end
+
+  # TODO: Git関連の警告を回避するため、GIT_DISCOVERY_ACROSS_FILESYSTEMを設定
+  # Makefileにも記載されている対応が必要
+  # ENV["GIT_DISCOVERY_ACROSS_FILESYSTEM"] = "1"
 end
