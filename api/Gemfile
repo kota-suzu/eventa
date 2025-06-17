@@ -45,8 +45,8 @@ gem "rswag-ui"
 gem "rack-cors"
 
 # バックグラウンドジョブ処理用
-gem "sidekiq", "~> 7.3.9" # TODO: sidekiq-schedulerが8系対応次第、8系にアップグレードする
-gem "sidekiq-scheduler", "~> 5.0.6" # ジョブスケジューリング
+gem "sidekiq", "~> 8.0.4" # TODO: sidekiq-schedulerが8系対応次第、8系にアップグレードする
+gem "sidekiq-scheduler", "~> 6.0.1" # ジョブスケジューリング
 
 # データベーススキーマ管理ツール
 gem "ridgepole", "~> 3.0.1"
