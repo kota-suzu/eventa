@@ -73,7 +73,7 @@ group :development, :test do
   gem "standard", require: false # Rubocopベースのスタイルガイド
 
   # テスト用
-  gem "rspec-rails", "~> 6.1.0" # RSpecテスト
+  gem "rspec-rails", "~> 8.0.1" # RSpecテスト
   gem "factory_bot_rails"       # テスト用オブジェクト生成
   gem "shoulda-matchers"        # モデルテスト補助
   gem "faker"                   # ランダムデータ生成
@@ -100,7 +100,7 @@ group :test do
 
   # C1カバレッジ計測
   gem "simplecov", "~> 0.22.0", require: false
-  gem "simplecov-cobertura", "~> 2.1.0", require: false # CIでXML形式のレポートを生成するため
+  gem "simplecov-cobertura", "~> 3.0.0", require: false # CIでXML形式のレポートを生成するため
 
   # コード品質メトリクス
   gem "rubycritic", "~> 4.8", require: false
