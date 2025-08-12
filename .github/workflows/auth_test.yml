@@ -53,7 +53,7 @@ jobs:
     
     steps:
       - name: ソースコードをチェックアウト
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       
       # 1) Install Ruby (skip bundle)
       - name: Ruby をセットアップ (bundle なし)

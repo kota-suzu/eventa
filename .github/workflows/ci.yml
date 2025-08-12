@@ -15,7 +15,7 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # 1) Install Ruby (skip bundle)
       - name: Set up Ruby (no bundle yet)
@@ -98,7 +98,7 @@ jobs:
       DB_NAME: eventa_test
       REDIS_URL: redis://localhost:6379/1
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Ruby (no bundle yet)
         uses: ruby/setup-ruby@v1
@@ -235,7 +235,7 @@ jobs:
       DB_NAME: eventa_test
       PARALLEL_TEST_PROCESSORS: 4
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Ruby (no bundle yet)
         uses: ruby/setup-ruby@v1
